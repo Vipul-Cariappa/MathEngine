@@ -1,0 +1,16 @@
+[package]
+name = "MathEngine"
+version = "0.0.1"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "math_engine"
+path = "src/lib.rs"
+
+[[bin]]
+name = "mybin"
+path = "src/bin.rs"
+
+[dependencies]
