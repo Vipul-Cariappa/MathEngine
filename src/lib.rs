@@ -57,6 +57,9 @@ pub fn do_something() {
     let eq: PartEquation = eq + 3;
     let eq: PartEquation = eq - 6;
     let eq: PartEquation = eq * 9;
+    let eq: PartEquation = 3 + eq;
+    let eq: PartEquation = 6 - eq;
+    let eq: PartEquation = 9 * eq;
 
     println!("equation: {}", eq);
     println!("simplify: {}", eq.simplify());
