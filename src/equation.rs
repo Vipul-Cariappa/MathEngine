@@ -90,6 +90,24 @@ pub struct PartEquation {
 }
 
 impl PartEquation {
+    pub fn new(variable: char) -> Self {
+        PartEquation {
+            eq: EquationComponentType::VariableNode(VariableNode { variable: variable }),
+        }
+    }
+
+    pub fn newi(value: i128) -> Self {
+        PartEquation {
+            eq: EquationComponentType::Integer(Integer { value: value }),
+        }
+    }
+
+    pub fn newf(value: f64) -> Self {
+        PartEquation {
+            eq: EquationComponentType::Decimal(Decimal { value: value }),
+        }
+    }
+
     pub fn simplify(self) -> Self {
         PartEquation {
             eq: self.eq.simplify(),

@@ -63,4 +63,28 @@ pub fn do_something() {
 
     println!("equation: {}", eq);
     println!("simplify: {}", eq.simplify());
+
+    println!("\n\n");
+
+    // *** checking initializing ***
+    let eq_x: PartEquation = PartEquation::new('x');
+    println!("5 + x * 4 = {}", 5 + eq_x * 4);
+
+    let i: i128 = 34;
+    let eq_i: PartEquation = 5 + PartEquation::newi(i) * 4;
+    let eq_i_s: PartEquation = eq_i.simplify();
+    let eq_i: PartEquation = 5 + PartEquation::newi(i) * 4;
+    println!(
+        "5 + x * 4 = {}, where x = {} \t simplified: {}",
+        eq_i, i, eq_i_s
+    );
+
+    let d: f64 = 3.1415;
+    let eq_d: PartEquation = 5 + PartEquation::newf(d) * 4.2;
+    let eq_d_s: PartEquation = eq_d.simplify();
+    let eq_d: PartEquation = 5 + PartEquation::newf(d) * 4.2;
+    println!(
+        "5 + x * 4.2 = {}, where x = {} \t simplified: {}",
+        eq_d, d, eq_d_s
+    );
 }
