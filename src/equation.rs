@@ -3,7 +3,13 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::ops;
 
-#[derive(Clone)]
+use super::math;
+
+trait OperationNode {
+    fn simplify(self) -> EquationComponentType;
+    fn substitute(self) -> EquationComponentType;
+}
+
 pub enum EquationComponentType {
     Integer(Integer),
     Decimal(Decimal),
@@ -48,12 +54,48 @@ impl Display for EquationComponentType {
     }
 }
 
-#[derive(Debug, Clone)]
+impl OperationNode for EquationComponentType {
+    fn simplify(self) -> EquationComponentType {
+        match self {
+            EquationComponentType::Integer(i) => i.simplify(),
+            EquationComponentType::Decimal(i) => i.simplify(),
+            EquationComponentType::VariableNode(i) => i.simplify(),
+            EquationComponentType::AddNode(i) => i.simplify(),
+            EquationComponentType::SubNode(i) => i.simplify(),
+            EquationComponentType::MulNode(i) => i.simplify(),
+            EquationComponentType::DivNode(i) => i.simplify(),
+            EquationComponentType::PowNode(i) => i.simplify(),
+            EquationComponentType::MinusNode(i) => i.simplify(),
+        }
+    }
+
+    fn substitute(self) -> EquationComponentType {
+        match self {
+            EquationComponentType::Integer(i) => i.simplify(),
+            EquationComponentType::Decimal(i) => i.simplify(),
+            EquationComponentType::VariableNode(i) => i.simplify(),
+            EquationComponentType::AddNode(i) => i.simplify(),
+            EquationComponentType::SubNode(i) => i.simplify(),
+            EquationComponentType::MulNode(i) => i.simplify(),
+            EquationComponentType::DivNode(i) => i.simplify(),
+            EquationComponentType::PowNode(i) => i.simplify(),
+            EquationComponentType::MinusNode(i) => i.simplify(),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct PartEquation {
     pub eq: EquationComponentType,
 }
 
 impl PartEquation {
+    pub fn simplify(self) -> Self {
+        PartEquation {
+            eq: self.eq.simplify(),
+        }
+    }
+
     pub fn pow(self, exponent: PartEquation) -> Self {
         PartEquation {
             eq: EquationComponentType::PowNode(PowNode {
@@ -469,12 +511,7 @@ impl ops::Neg for PartEquation {
     }
 }
 
-// trait OperationNode {
-//     fn simplify(self) -> EquationComponentType;
-//     fn substitute(self) -> EquationComponentType;
-// }
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub struct Integer {
     pub value: i128,
 }
@@ -485,7 +522,18 @@ impl Display for Integer {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+impl OperationNode for Integer {
+    fn simplify(self) -> EquationComponentType {
+        EquationComponentType::Integer(self)
+    }
+
+    fn substitute(self) -> EquationComponentType {
+        // TODO: implement
+        EquationComponentType::Integer(self)
+    }
+}
+
+#[derive(Debug)]
 pub struct Decimal {
     pub value: f64,
 }
@@ -496,7 +544,18 @@ impl Display for Decimal {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+impl OperationNode for Decimal {
+    fn simplify(self) -> EquationComponentType {
+        EquationComponentType::Decimal(self)
+    }
+
+    fn substitute(self) -> EquationComponentType {
+        // TODO: implement
+        EquationComponentType::Decimal(self)
+    }
+}
+
+#[derive(Debug)]
 pub struct VariableNode {
     pub variable: char,
 }
@@ -507,7 +566,18 @@ impl Display for VariableNode {
     }
 }
 
-#[derive(Debug, Clone)]
+impl OperationNode for VariableNode {
+    fn simplify(self) -> EquationComponentType {
+        EquationComponentType::VariableNode(self)
+    }
+
+    fn substitute(self) -> EquationComponentType {
+        // TODO: implement
+        EquationComponentType::VariableNode(self)
+    }
+}
+
+#[derive(Debug)]
 pub struct AddNode {
     pub lhs: Box<EquationComponentType>,
     pub rhs: Box<EquationComponentType>,
@@ -519,7 +589,52 @@ impl Display for AddNode {
     }
 }
 
-#[derive(Debug, Clone)]
+impl OperationNode for AddNode {
+    fn simplify(self) -> EquationComponentType {
+        let lhs: EquationComponentType = self.lhs.simplify();
+        let rhs: EquationComponentType = self.rhs.simplify();
+
+        if let EquationComponentType::Integer(i) = lhs {
+            if let EquationComponentType::Integer(j) = rhs {
+                let result: i128 = i.value + j.value;
+                return EquationComponentType::Integer(Integer { value: result });
+            } else if let EquationComponentType::Decimal(j) = rhs {
+                let result: f64 = i.value as f64 + j.value;
+                return EquationComponentType::Decimal(Decimal { value: result });
+            } else {
+                return EquationComponentType::AddNode(AddNode {
+                    lhs: Box::new(EquationComponentType::Integer(i)),
+                    rhs: Box::new(rhs),
+                });
+            }
+        } else if let EquationComponentType::Decimal(i) = lhs {
+            if let EquationComponentType::Integer(j) = rhs {
+                let result: f64 = i.value + j.value as f64;
+                return EquationComponentType::Decimal(Decimal { value: result });
+            } else if let EquationComponentType::Decimal(j) = rhs {
+                let result: f64 = i.value + j.value;
+                return EquationComponentType::Decimal(Decimal { value: result });
+            } else {
+                return EquationComponentType::AddNode(AddNode {
+                    lhs: Box::new(EquationComponentType::Decimal(i)),
+                    rhs: Box::new(rhs),
+                });
+            }
+        } else {
+            return EquationComponentType::AddNode(AddNode {
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs),
+            });
+        }
+    }
+
+    fn substitute(self) -> EquationComponentType {
+        // TODO: implement
+        EquationComponentType::AddNode(self)
+    }
+}
+
+#[derive(Debug)]
 pub struct SubNode {
     pub lhs: Box<EquationComponentType>,
     pub rhs: Box<EquationComponentType>,
@@ -531,7 +646,52 @@ impl Display for SubNode {
     }
 }
 
-#[derive(Debug, Clone)]
+impl OperationNode for SubNode {
+    fn simplify(self) -> EquationComponentType {
+        let lhs: EquationComponentType = self.lhs.simplify();
+        let rhs: EquationComponentType = self.rhs.simplify();
+
+        if let EquationComponentType::Integer(i) = lhs {
+            if let EquationComponentType::Integer(j) = rhs {
+                let result: i128 = i.value - j.value;
+                return EquationComponentType::Integer(Integer { value: result });
+            } else if let EquationComponentType::Decimal(j) = rhs {
+                let result: f64 = i.value as f64 - j.value;
+                return EquationComponentType::Decimal(Decimal { value: result });
+            } else {
+                return EquationComponentType::SubNode(SubNode {
+                    lhs: Box::new(EquationComponentType::Integer(i)),
+                    rhs: Box::new(rhs),
+                });
+            }
+        } else if let EquationComponentType::Decimal(i) = lhs {
+            if let EquationComponentType::Integer(j) = rhs {
+                let result: f64 = i.value - j.value as f64;
+                return EquationComponentType::Decimal(Decimal { value: result });
+            } else if let EquationComponentType::Decimal(j) = rhs {
+                let result: f64 = i.value - j.value;
+                return EquationComponentType::Decimal(Decimal { value: result });
+            } else {
+                return EquationComponentType::SubNode(SubNode {
+                    lhs: Box::new(EquationComponentType::Decimal(i)),
+                    rhs: Box::new(rhs),
+                });
+            }
+        } else {
+            return EquationComponentType::SubNode(SubNode {
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs),
+            });
+        }
+    }
+
+    fn substitute(self) -> EquationComponentType {
+        // TODO: implement
+        EquationComponentType::SubNode(self)
+    }
+}
+
+#[derive(Debug)]
 pub struct MulNode {
     pub lhs: Box<EquationComponentType>,
     pub rhs: Box<EquationComponentType>,
@@ -543,7 +703,52 @@ impl Display for MulNode {
     }
 }
 
-#[derive(Debug, Clone)]
+impl OperationNode for MulNode {
+    fn simplify(self) -> EquationComponentType {
+        let lhs: EquationComponentType = self.lhs.simplify();
+        let rhs: EquationComponentType = self.rhs.simplify();
+
+        if let EquationComponentType::Integer(i) = lhs {
+            if let EquationComponentType::Integer(j) = rhs {
+                let result: i128 = i.value * j.value;
+                return EquationComponentType::Integer(Integer { value: result });
+            } else if let EquationComponentType::Decimal(j) = rhs {
+                let result: f64 = i.value as f64 * j.value;
+                return EquationComponentType::Decimal(Decimal { value: result });
+            } else {
+                return EquationComponentType::MulNode(MulNode {
+                    lhs: Box::new(EquationComponentType::Integer(i)),
+                    rhs: Box::new(rhs),
+                });
+            }
+        } else if let EquationComponentType::Decimal(i) = lhs {
+            if let EquationComponentType::Integer(j) = rhs {
+                let result: f64 = i.value * j.value as f64;
+                return EquationComponentType::Decimal(Decimal { value: result });
+            } else if let EquationComponentType::Decimal(j) = rhs {
+                let result: f64 = i.value * j.value;
+                return EquationComponentType::Decimal(Decimal { value: result });
+            } else {
+                return EquationComponentType::MulNode(MulNode {
+                    lhs: Box::new(EquationComponentType::Decimal(i)),
+                    rhs: Box::new(rhs),
+                });
+            }
+        } else {
+            return EquationComponentType::MulNode(MulNode {
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs),
+            });
+        }
+    }
+
+    fn substitute(self) -> EquationComponentType {
+        // TODO: implement
+        EquationComponentType::MulNode(self)
+    }
+}
+
+#[derive(Debug)]
 pub struct DivNode {
     pub lhs: Box<EquationComponentType>,
     pub rhs: Box<EquationComponentType>,
@@ -555,7 +760,52 @@ impl Display for DivNode {
     }
 }
 
-#[derive(Debug, Clone)]
+impl OperationNode for DivNode {
+    fn simplify(self) -> EquationComponentType {
+        let lhs: EquationComponentType = self.lhs.simplify();
+        let rhs: EquationComponentType = self.rhs.simplify();
+
+        if let EquationComponentType::Integer(i) = lhs {
+            if let EquationComponentType::Integer(j) = rhs {
+                let result: i128 = i.value / j.value;
+                return EquationComponentType::Integer(Integer { value: result });
+            } else if let EquationComponentType::Decimal(j) = rhs {
+                let result: f64 = i.value as f64 / j.value;
+                return EquationComponentType::Decimal(Decimal { value: result });
+            } else {
+                return EquationComponentType::DivNode(DivNode {
+                    lhs: Box::new(EquationComponentType::Integer(i)),
+                    rhs: Box::new(rhs),
+                });
+            }
+        } else if let EquationComponentType::Decimal(i) = lhs {
+            if let EquationComponentType::Integer(j) = rhs {
+                let result: f64 = i.value / j.value as f64;
+                return EquationComponentType::Decimal(Decimal { value: result });
+            } else if let EquationComponentType::Decimal(j) = rhs {
+                let result: f64 = i.value / j.value;
+                return EquationComponentType::Decimal(Decimal { value: result });
+            } else {
+                return EquationComponentType::DivNode(DivNode {
+                    lhs: Box::new(EquationComponentType::Decimal(i)),
+                    rhs: Box::new(rhs),
+                });
+            }
+        } else {
+            return EquationComponentType::DivNode(DivNode {
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs),
+            });
+        }
+    }
+
+    fn substitute(self) -> EquationComponentType {
+        // TODO: implement
+        EquationComponentType::DivNode(self)
+    }
+}
+
+#[derive(Debug)]
 pub struct PowNode {
     pub lhs: Box<EquationComponentType>, // lhs is the base
     pub rhs: Box<EquationComponentType>, // rhs is the exponent
@@ -567,7 +817,52 @@ impl Display for PowNode {
     }
 }
 
-#[derive(Debug, Clone)]
+impl OperationNode for PowNode {
+    fn simplify(self) -> EquationComponentType {
+        let lhs: EquationComponentType = self.lhs.simplify();
+        let rhs: EquationComponentType = self.rhs.simplify();
+
+        if let EquationComponentType::Integer(i) = lhs {
+            if let EquationComponentType::Integer(j) = rhs {
+                let result: i128 = math::powi128(i.value, j.value);
+                return EquationComponentType::Integer(Integer { value: result });
+            } else if let EquationComponentType::Decimal(j) = rhs {
+                let result: f64 = math::powf64(i.value as f64, j.value);
+                return EquationComponentType::Decimal(Decimal { value: result });
+            } else {
+                return EquationComponentType::PowNode(PowNode {
+                    lhs: Box::new(EquationComponentType::Integer(i)),
+                    rhs: Box::new(rhs),
+                });
+            }
+        } else if let EquationComponentType::Decimal(i) = lhs {
+            if let EquationComponentType::Integer(j) = rhs {
+                let result: f64 = math::powf64(i.value, j.value as f64);
+                return EquationComponentType::Decimal(Decimal { value: result });
+            } else if let EquationComponentType::Decimal(j) = rhs {
+                let result: f64 = math::powf64(i.value, j.value);
+                return EquationComponentType::Decimal(Decimal { value: result });
+            } else {
+                return EquationComponentType::PowNode(PowNode {
+                    lhs: Box::new(EquationComponentType::Decimal(i)),
+                    rhs: Box::new(rhs),
+                });
+            }
+        } else {
+            return EquationComponentType::PowNode(PowNode {
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs),
+            });
+        }
+    }
+
+    fn substitute(self) -> EquationComponentType {
+        // TODO: implement
+        EquationComponentType::PowNode(self)
+    }
+}
+
+#[derive(Debug)]
 pub struct MinusNode {
     pub value: Box<EquationComponentType>,
 }
@@ -575,5 +870,26 @@ pub struct MinusNode {
 impl Display for MinusNode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "(-{})", self.value)
+    }
+}
+
+impl OperationNode for MinusNode {
+    fn simplify(self) -> EquationComponentType {
+        let value: EquationComponentType = self.value.simplify();
+
+        if let EquationComponentType::Integer(i) = value {
+            return EquationComponentType::Integer(Integer { value: -(i.value) });
+        } else if let EquationComponentType::Decimal(i) = value {
+            return EquationComponentType::Decimal(Decimal { value: -(i.value) });
+        } else {
+            return EquationComponentType::MinusNode(MinusNode {
+                value: Box::new(value),
+            });
+        }
+    }
+
+    fn substitute(self) -> EquationComponentType {
+        // TODO: implement
+        EquationComponentType::MinusNode(self)
     }
 }

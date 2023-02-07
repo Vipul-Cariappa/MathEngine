@@ -1,8 +1,8 @@
-use equation::EquationComponentType as ECT;
-
-use crate::equation::PartEquation;
-
 mod equation;
+mod math;
+
+use equation::EquationComponentType as ECT;
+use equation::PartEquation;
 
 pub fn get_version() -> &'static str {
     "0.0.1"
@@ -20,7 +20,7 @@ pub fn do_something() {
     println!("{:?}", add_node1);
     println!("{}", add_node1);
 
-    // *** real stuff ***
+    // *** checking operators ***
 
     let x = equation::VariableNode { variable: 'x' };
     let pe1 = equation::PartEquation {
@@ -46,4 +46,18 @@ pub fn do_something() {
     let eq: PartEquation = eq.powi32(3);
     println!("Power2: {}", eq);
     println!("Power2: {:?}", eq);
+
+    println!("\n\n");
+
+    // *** Checking simplifications ***
+    let x: equation::Integer = equation::Integer { value: 4 };
+    let eq: PartEquation = PartEquation {
+        eq: ECT::Integer(x),
+    };
+    let eq: PartEquation = eq + 3;
+    let eq: PartEquation = eq - 6;
+    let eq: PartEquation = eq * 9;
+
+    println!("equation: {}", eq);
+    println!("simplify: {}", eq.simplify());
 }
