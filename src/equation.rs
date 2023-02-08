@@ -53,9 +53,9 @@ impl Display for EquationComponentType {
 impl EquationComponentType {
     fn simplify(&self) -> EquationComponentType {
         match self {
-            EquationComponentType::Integer(i) => i.simplify(),
-            EquationComponentType::Decimal(i) => i.simplify(),
-            EquationComponentType::VariableNode(i) => i.simplify(),
+            EquationComponentType::Integer(i) => EquationComponentType::Integer(*i),
+            EquationComponentType::Decimal(i) => EquationComponentType::Decimal(*i),
+            EquationComponentType::VariableNode(i) => EquationComponentType::VariableNode(*i),
             EquationComponentType::AddNode(i) => i.simplify(),
             EquationComponentType::SubNode(i) => i.simplify(),
             EquationComponentType::MulNode(i) => i.simplify(),
@@ -67,15 +67,20 @@ impl EquationComponentType {
 
     fn substitutei(&self, variable: char, value: i128) -> EquationComponentType {
         match self {
-            EquationComponentType::Integer(i) => i.simplify(),
-            EquationComponentType::Decimal(i) => i.simplify(),
-            EquationComponentType::VariableNode(i) => i.simplify(),
-            EquationComponentType::AddNode(i) => i.simplify(),
-            EquationComponentType::SubNode(i) => i.simplify(),
-            EquationComponentType::MulNode(i) => i.simplify(),
-            EquationComponentType::DivNode(i) => i.simplify(),
-            EquationComponentType::PowNode(i) => i.simplify(),
-            EquationComponentType::MinusNode(i) => i.simplify(),
+            EquationComponentType::Integer(i) => EquationComponentType::Integer(*i),
+            EquationComponentType::Decimal(i) => EquationComponentType::Decimal(*i),
+            EquationComponentType::VariableNode(i) => {
+                if i.variable == variable {
+                    return EquationComponentType::Integer(Integer { value: value });
+                }
+                return EquationComponentType::VariableNode(*i);
+            }
+            EquationComponentType::AddNode(i) => i.substitutei(variable, value),
+            EquationComponentType::SubNode(i) => i.substitutei(variable, value),
+            EquationComponentType::MulNode(i) => i.substitutei(variable, value),
+            EquationComponentType::DivNode(i) => i.substitutei(variable, value),
+            EquationComponentType::PowNode(i) => i.substitutei(variable, value),
+            EquationComponentType::MinusNode(i) => i.substitutei(variable, value),
         }
     }
 }
@@ -86,6 +91,12 @@ pub struct PartEquation {
 }
 
 impl PartEquation {
+    pub fn substitutei(&self, variable: char, value: i128) -> PartEquation {
+        PartEquation {
+            eq: self.eq.substitutei(variable, value).simplify(),
+        }
+    }
+
     pub fn new(variable: char) -> Self {
         PartEquation {
             eq: EquationComponentType::VariableNode(VariableNode { variable: variable }),
@@ -1544,17 +1555,6 @@ impl Display for Integer {
     }
 }
 
-impl Integer {
-    fn simplify(&self) -> EquationComponentType {
-        EquationComponentType::Integer(*self)
-    }
-
-    fn substitute(&self) -> EquationComponentType {
-        // TODO: implement
-        EquationComponentType::Integer(*self)
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Decimal {
     pub value: f64,
@@ -1566,17 +1566,6 @@ impl Display for Decimal {
     }
 }
 
-impl Decimal {
-    fn simplify(&self) -> EquationComponentType {
-        EquationComponentType::Decimal(*self)
-    }
-
-    fn substitute(&self) -> EquationComponentType {
-        // TODO: implement
-        EquationComponentType::Decimal(*self)
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct VariableNode {
     pub variable: char,
@@ -1585,17 +1574,6 @@ pub struct VariableNode {
 impl Display for VariableNode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.variable)
-    }
-}
-
-impl VariableNode {
-    fn simplify(&self) -> EquationComponentType {
-        EquationComponentType::VariableNode(*self)
-    }
-
-    fn substitute(&self) -> EquationComponentType {
-        // TODO: implement
-        EquationComponentType::VariableNode(*self)
     }
 }
 
@@ -1650,9 +1628,15 @@ impl AddNode {
         }
     }
 
-    fn substitute(&self) -> EquationComponentType {
-        // TODO: implement
-        EquationComponentType::AddNode(self.clone())
+    fn substitutei(&self, variable: char, value: i128) -> EquationComponentType {
+        let lhs: EquationComponentType =
+            EquationComponentType::substitutei(&self.lhs, variable, value).simplify();
+        let rhs: EquationComponentType =
+            EquationComponentType::substitutei(&self.rhs, variable, value).simplify();
+        EquationComponentType::AddNode(AddNode {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+        })
     }
 }
 
@@ -1707,9 +1691,15 @@ impl SubNode {
         }
     }
 
-    fn substitute(&self) -> EquationComponentType {
-        // TODO: implement
-        EquationComponentType::SubNode(self.clone())
+    fn substitutei(&self, variable: char, value: i128) -> EquationComponentType {
+        let lhs: EquationComponentType =
+            EquationComponentType::substitutei(&self.lhs, variable, value).simplify();
+        let rhs: EquationComponentType =
+            EquationComponentType::substitutei(&self.rhs, variable, value).simplify();
+        EquationComponentType::SubNode(SubNode {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+        })
     }
 }
 
@@ -1764,9 +1754,15 @@ impl MulNode {
         }
     }
 
-    fn substitute(&self) -> EquationComponentType {
-        // TODO: implement
-        EquationComponentType::MulNode(self.clone())
+    fn substitutei(&self, variable: char, value: i128) -> EquationComponentType {
+        let lhs: EquationComponentType =
+            EquationComponentType::substitutei(&self.lhs, variable, value).simplify();
+        let rhs: EquationComponentType =
+            EquationComponentType::substitutei(&self.rhs, variable, value).simplify();
+        EquationComponentType::MulNode(MulNode {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+        })
     }
 }
 
@@ -1821,9 +1817,15 @@ impl DivNode {
         }
     }
 
-    fn substitute(&self) -> EquationComponentType {
-        // TODO: implement
-        EquationComponentType::DivNode(self.clone())
+    fn substitutei(&self, variable: char, value: i128) -> EquationComponentType {
+        let lhs: EquationComponentType =
+            EquationComponentType::substitutei(&self.lhs, variable, value).simplify();
+        let rhs: EquationComponentType =
+            EquationComponentType::substitutei(&self.rhs, variable, value).simplify();
+        EquationComponentType::DivNode(DivNode {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+        })
     }
 }
 
@@ -1878,9 +1880,15 @@ impl PowNode {
         }
     }
 
-    fn substitute(&self) -> EquationComponentType {
-        // TODO: implement
-        EquationComponentType::PowNode(self.clone())
+    fn substitutei(&self, variable: char, value: i128) -> EquationComponentType {
+        let lhs: EquationComponentType =
+            EquationComponentType::substitutei(&self.lhs, variable, value).simplify();
+        let rhs: EquationComponentType =
+            EquationComponentType::substitutei(&self.rhs, variable, value).simplify();
+        EquationComponentType::PowNode(PowNode {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+        })
     }
 }
 
@@ -1910,8 +1918,11 @@ impl MinusNode {
         }
     }
 
-    fn substitute(&self) -> EquationComponentType {
-        // TODO: implement
-        EquationComponentType::MinusNode(self.clone())
+    fn substitutei(&self, variable: char, value: i128) -> EquationComponentType {
+        let value: EquationComponentType =
+            EquationComponentType::substitutei(&self.value, variable, value).simplify();
+        EquationComponentType::MinusNode(MinusNode {
+            value: Box::new(value),
+        })
     }
 }

@@ -95,6 +95,8 @@ pub fn do_something() {
     println!("{} -> {}", x, eq);
 
     let eq2: PartEquation = eq.simplify();
+    let eq3: PartEquation = eq.substitutei('x', 2);
 
     println!("eq: {}, eq2: {}", eq, eq2);
+    println!("eq, 2 for x: {}", eq3);
 }
