@@ -39,7 +39,7 @@ pub fn do_something() {
     println!("Minus: {}", eq);
     println!("Minus: {:?}", eq);
 
-    let eq: PartEquation = eq.pow(pe2);
+    let eq: PartEquation = eq.pow(&pe2);
     println!("Power: {}", eq);
     println!("Power: {:?}", eq);
 
@@ -87,4 +87,14 @@ pub fn do_something() {
         "5 + x * 4.2 = {}, where x = {} \t simplified: {}",
         eq_d, d, eq_d_s
     );
+
+    // *** check operations based on reference ***
+    let x: PartEquation = PartEquation::new('x');
+    let eq: PartEquation = 14 - &x + &x * 65 / 24;
+
+    println!("{} -> {}", x, eq);
+
+    let eq2: PartEquation = eq.simplify();
+
+    println!("eq: {}, eq2: {}", eq, eq2);
 }

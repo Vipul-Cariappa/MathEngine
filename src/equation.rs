@@ -5,11 +5,7 @@ use std::ops;
 
 use super::math;
 
-trait OperationNode {
-    fn simplify(self) -> EquationComponentType;
-    fn substitute(self) -> EquationComponentType;
-}
-
+#[derive(Clone)]
 pub enum EquationComponentType {
     Integer(Integer),
     Decimal(Decimal),
@@ -54,8 +50,8 @@ impl Display for EquationComponentType {
     }
 }
 
-impl OperationNode for EquationComponentType {
-    fn simplify(self) -> EquationComponentType {
+impl EquationComponentType {
+    fn simplify(&self) -> EquationComponentType {
         match self {
             EquationComponentType::Integer(i) => i.simplify(),
             EquationComponentType::Decimal(i) => i.simplify(),
@@ -69,7 +65,7 @@ impl OperationNode for EquationComponentType {
         }
     }
 
-    fn substitute(self) -> EquationComponentType {
+    fn substitutei(&self, variable: char, value: i128) -> EquationComponentType {
         match self {
             EquationComponentType::Integer(i) => i.simplify(),
             EquationComponentType::Decimal(i) => i.simplify(),
@@ -84,7 +80,7 @@ impl OperationNode for EquationComponentType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PartEquation {
     pub eq: EquationComponentType,
 }
@@ -108,25 +104,25 @@ impl PartEquation {
         }
     }
 
-    pub fn simplify(self) -> Self {
+    pub fn simplify(&self) -> Self {
         PartEquation {
             eq: self.eq.simplify(),
         }
     }
 
-    pub fn pow(self, exponent: PartEquation) -> Self {
+    pub fn pow(&self, exponent: &PartEquation) -> Self {
         PartEquation {
             eq: EquationComponentType::PowNode(PowNode {
-                lhs: Box::new(self.eq),
-                rhs: Box::new(exponent.eq),
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(exponent.eq.clone()),
             }),
         }
     }
 
-    pub fn powi32(self, exponent: i32) -> Self {
+    pub fn powi32(&self, exponent: i32) -> Self {
         PartEquation {
             eq: EquationComponentType::PowNode(PowNode {
-                lhs: Box::new(self.eq),
+                lhs: Box::new(self.eq.clone()),
                 rhs: Box::new(EquationComponentType::Integer(Integer {
                     value: exponent as i128,
                 })),
@@ -134,10 +130,10 @@ impl PartEquation {
         }
     }
 
-    pub fn powi64(self, exponent: i64) -> Self {
+    pub fn powi64(&self, exponent: i64) -> Self {
         PartEquation {
             eq: EquationComponentType::PowNode(PowNode {
-                lhs: Box::new(self.eq),
+                lhs: Box::new(self.eq.clone()),
                 rhs: Box::new(EquationComponentType::Integer(Integer {
                     value: exponent as i128,
                 })),
@@ -145,19 +141,19 @@ impl PartEquation {
         }
     }
 
-    pub fn powi128(self, exponent: i128) -> Self {
+    pub fn powi128(&self, exponent: i128) -> Self {
         PartEquation {
             eq: EquationComponentType::PowNode(PowNode {
-                lhs: Box::new(self.eq),
+                lhs: Box::new(self.eq.clone()),
                 rhs: Box::new(EquationComponentType::Integer(Integer { value: exponent })),
             }),
         }
     }
 
-    pub fn powf32(self, exponent: f32) -> Self {
+    pub fn powf32(&self, exponent: f32) -> Self {
         PartEquation {
             eq: EquationComponentType::PowNode(PowNode {
-                lhs: Box::new(self.eq),
+                lhs: Box::new(self.eq.clone()),
                 rhs: Box::new(EquationComponentType::Decimal(Decimal {
                     value: exponent as f64,
                 })),
@@ -165,10 +161,10 @@ impl PartEquation {
         }
     }
 
-    pub fn powf64(self, exponent: f64) -> Self {
+    pub fn powf64(&self, exponent: f64) -> Self {
         PartEquation {
             eq: EquationComponentType::PowNode(PowNode {
-                lhs: Box::new(self.eq),
+                lhs: Box::new(self.eq.clone()),
                 rhs: Box::new(EquationComponentType::Decimal(Decimal { value: exponent })),
             }),
         }
@@ -189,6 +185,45 @@ impl ops::Add<PartEquation> for PartEquation {
             eq: EquationComponentType::AddNode(AddNode {
                 lhs: Box::new(self.eq),
                 rhs: Box::new(rhs.eq),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Add<&'a PartEquation> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::AddNode(AddNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Add<PartEquation> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn add(self, rhs: PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::AddNode(AddNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(rhs.eq),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Add<&'a PartEquation> for PartEquation {
+    type Output = PartEquation;
+
+    fn add(self, rhs: &'a PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::AddNode(AddNode {
+                lhs: Box::new(self.eq),
+                rhs: Box::new(rhs.eq.clone()),
             }),
         }
     }
@@ -336,6 +371,148 @@ impl ops::Add<PartEquation> for f64 {
     }
 }
 
+impl<'a> ops::Add<i32> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn add(self, rhs: i32) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::AddNode(AddNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(EquationComponentType::Integer(Integer {
+                    value: rhs as i128,
+                })),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Add<i64> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn add(self, rhs: i64) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::AddNode(AddNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(EquationComponentType::Integer(Integer {
+                    value: rhs as i128,
+                })),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Add<i128> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn add(self, rhs: i128) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::AddNode(AddNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(EquationComponentType::Integer(Integer { value: rhs })),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Add<f32> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn add(self, rhs: f32) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::AddNode(AddNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(EquationComponentType::Decimal(Decimal {
+                    value: rhs as f64,
+                })),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Add<f64> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn add(self, rhs: f64) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::AddNode(AddNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(EquationComponentType::Decimal(Decimal { value: rhs })),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Add<&'a PartEquation> for i32 {
+    type Output = PartEquation;
+
+    fn add(self, rhs: &PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::AddNode(AddNode {
+                lhs: Box::new(EquationComponentType::Integer(Integer {
+                    value: self as i128,
+                })),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Add<&'a PartEquation> for i64 {
+    type Output = PartEquation;
+
+    fn add(self, rhs: &PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::AddNode(AddNode {
+                lhs: Box::new(EquationComponentType::Integer(Integer {
+                    value: self as i128,
+                })),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Add<&'a PartEquation> for i128 {
+    type Output = PartEquation;
+
+    fn add(self, rhs: &PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::AddNode(AddNode {
+                lhs: Box::new(EquationComponentType::Integer(Integer { value: self })),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Add<&'a PartEquation> for f32 {
+    type Output = PartEquation;
+
+    fn add(self, rhs: &PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::AddNode(AddNode {
+                lhs: Box::new(EquationComponentType::Decimal(Decimal {
+                    value: self as f64,
+                })),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Add<&'a PartEquation> for f64 {
+    type Output = PartEquation;
+
+    fn add(self, rhs: &PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::AddNode(AddNode {
+                lhs: Box::new(EquationComponentType::Decimal(Decimal { value: self })),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
 impl ops::Sub<PartEquation> for PartEquation {
     type Output = PartEquation;
 
@@ -344,6 +521,45 @@ impl ops::Sub<PartEquation> for PartEquation {
             eq: EquationComponentType::SubNode(SubNode {
                 lhs: Box::new(self.eq),
                 rhs: Box::new(rhs.eq),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Sub<&'a PartEquation> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::SubNode(SubNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Sub<PartEquation> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn sub(self, rhs: PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::SubNode(SubNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(rhs.eq),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Sub<&'a PartEquation> for PartEquation {
+    type Output = PartEquation;
+
+    fn sub(self, rhs: &'a PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::SubNode(SubNode {
+                lhs: Box::new(self.eq),
+                rhs: Box::new(rhs.eq.clone()),
             }),
         }
     }
@@ -491,6 +707,148 @@ impl ops::Sub<PartEquation> for f64 {
     }
 }
 
+impl<'a> ops::Sub<i32> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn sub(self, rhs: i32) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::SubNode(SubNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(EquationComponentType::Integer(Integer {
+                    value: rhs as i128,
+                })),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Sub<i64> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn sub(self, rhs: i64) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::SubNode(SubNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(EquationComponentType::Integer(Integer {
+                    value: rhs as i128,
+                })),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Sub<i128> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn sub(self, rhs: i128) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::SubNode(SubNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(EquationComponentType::Integer(Integer { value: rhs })),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Sub<f32> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn sub(self, rhs: f32) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::SubNode(SubNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(EquationComponentType::Decimal(Decimal {
+                    value: rhs as f64,
+                })),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Sub<f64> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn sub(self, rhs: f64) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::SubNode(SubNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(EquationComponentType::Decimal(Decimal { value: rhs })),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Sub<&'a PartEquation> for i32 {
+    type Output = PartEquation;
+
+    fn sub(self, rhs: &PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::SubNode(SubNode {
+                lhs: Box::new(EquationComponentType::Integer(Integer {
+                    value: self as i128,
+                })),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Sub<&'a PartEquation> for i64 {
+    type Output = PartEquation;
+
+    fn sub(self, rhs: &PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::SubNode(SubNode {
+                lhs: Box::new(EquationComponentType::Integer(Integer {
+                    value: self as i128,
+                })),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Sub<&'a PartEquation> for i128 {
+    type Output = PartEquation;
+
+    fn sub(self, rhs: &PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::SubNode(SubNode {
+                lhs: Box::new(EquationComponentType::Integer(Integer { value: self })),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Sub<&'a PartEquation> for f32 {
+    type Output = PartEquation;
+
+    fn sub(self, rhs: &PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::SubNode(SubNode {
+                lhs: Box::new(EquationComponentType::Decimal(Decimal {
+                    value: self as f64,
+                })),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Sub<&'a PartEquation> for f64 {
+    type Output = PartEquation;
+
+    fn sub(self, rhs: &PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::SubNode(SubNode {
+                lhs: Box::new(EquationComponentType::Decimal(Decimal { value: self })),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
 impl ops::Mul<PartEquation> for PartEquation {
     type Output = PartEquation;
 
@@ -499,6 +857,45 @@ impl ops::Mul<PartEquation> for PartEquation {
             eq: EquationComponentType::MulNode(MulNode {
                 lhs: Box::new(self.eq),
                 rhs: Box::new(rhs.eq),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Mul<&'a PartEquation> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::MulNode(MulNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Mul<PartEquation> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn mul(self, rhs: PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::MulNode(MulNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(rhs.eq),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Mul<&'a PartEquation> for PartEquation {
+    type Output = PartEquation;
+
+    fn mul(self, rhs: &'a PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::MulNode(MulNode {
+                lhs: Box::new(self.eq),
+                rhs: Box::new(rhs.eq.clone()),
             }),
         }
     }
@@ -646,6 +1043,148 @@ impl ops::Mul<PartEquation> for f64 {
     }
 }
 
+impl<'a> ops::Mul<i32> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn mul(self, rhs: i32) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::MulNode(MulNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(EquationComponentType::Integer(Integer {
+                    value: rhs as i128,
+                })),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Mul<i64> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn mul(self, rhs: i64) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::MulNode(MulNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(EquationComponentType::Integer(Integer {
+                    value: rhs as i128,
+                })),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Mul<i128> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn mul(self, rhs: i128) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::MulNode(MulNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(EquationComponentType::Integer(Integer { value: rhs })),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Mul<f32> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::MulNode(MulNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(EquationComponentType::Decimal(Decimal {
+                    value: rhs as f64,
+                })),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Mul<f64> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::MulNode(MulNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(EquationComponentType::Decimal(Decimal { value: rhs })),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Mul<&'a PartEquation> for i32 {
+    type Output = PartEquation;
+
+    fn mul(self, rhs: &PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::MulNode(MulNode {
+                lhs: Box::new(EquationComponentType::Integer(Integer {
+                    value: self as i128,
+                })),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Mul<&'a PartEquation> for i64 {
+    type Output = PartEquation;
+
+    fn mul(self, rhs: &PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::MulNode(MulNode {
+                lhs: Box::new(EquationComponentType::Integer(Integer {
+                    value: self as i128,
+                })),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Mul<&'a PartEquation> for i128 {
+    type Output = PartEquation;
+
+    fn mul(self, rhs: &PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::MulNode(MulNode {
+                lhs: Box::new(EquationComponentType::Integer(Integer { value: self })),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Mul<&'a PartEquation> for f32 {
+    type Output = PartEquation;
+
+    fn mul(self, rhs: &PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::MulNode(MulNode {
+                lhs: Box::new(EquationComponentType::Decimal(Decimal {
+                    value: self as f64,
+                })),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Mul<&'a PartEquation> for f64 {
+    type Output = PartEquation;
+
+    fn mul(self, rhs: &PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::MulNode(MulNode {
+                lhs: Box::new(EquationComponentType::Decimal(Decimal { value: self })),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
 impl ops::Div<PartEquation> for PartEquation {
     type Output = PartEquation;
 
@@ -654,6 +1193,45 @@ impl ops::Div<PartEquation> for PartEquation {
             eq: EquationComponentType::DivNode(DivNode {
                 lhs: Box::new(self.eq),
                 rhs: Box::new(rhs.eq),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Div<&'a PartEquation> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::DivNode(DivNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Div<PartEquation> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn div(self, rhs: PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::DivNode(DivNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(rhs.eq),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Div<&'a PartEquation> for PartEquation {
+    type Output = PartEquation;
+
+    fn div(self, rhs: &'a PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::DivNode(DivNode {
+                lhs: Box::new(self.eq),
+                rhs: Box::new(rhs.eq.clone()),
             }),
         }
     }
@@ -801,6 +1379,148 @@ impl ops::Div<PartEquation> for f64 {
     }
 }
 
+impl<'a> ops::Div<i32> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn div(self, rhs: i32) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::DivNode(DivNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(EquationComponentType::Integer(Integer {
+                    value: rhs as i128,
+                })),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Div<i64> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn div(self, rhs: i64) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::DivNode(DivNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(EquationComponentType::Integer(Integer {
+                    value: rhs as i128,
+                })),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Div<i128> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn div(self, rhs: i128) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::DivNode(DivNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(EquationComponentType::Integer(Integer { value: rhs })),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Div<f32> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::DivNode(DivNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(EquationComponentType::Decimal(Decimal {
+                    value: rhs as f64,
+                })),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Div<f64> for &'a PartEquation {
+    type Output = PartEquation;
+
+    fn div(self, rhs: f64) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::DivNode(DivNode {
+                lhs: Box::new(self.eq.clone()),
+                rhs: Box::new(EquationComponentType::Decimal(Decimal { value: rhs })),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Div<&'a PartEquation> for i32 {
+    type Output = PartEquation;
+
+    fn div(self, rhs: &PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::DivNode(DivNode {
+                lhs: Box::new(EquationComponentType::Integer(Integer {
+                    value: self as i128,
+                })),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Div<&'a PartEquation> for i64 {
+    type Output = PartEquation;
+
+    fn div(self, rhs: &PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::DivNode(DivNode {
+                lhs: Box::new(EquationComponentType::Integer(Integer {
+                    value: self as i128,
+                })),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Div<&'a PartEquation> for i128 {
+    type Output = PartEquation;
+
+    fn div(self, rhs: &PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::DivNode(DivNode {
+                lhs: Box::new(EquationComponentType::Integer(Integer { value: self })),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Div<&'a PartEquation> for f32 {
+    type Output = PartEquation;
+
+    fn div(self, rhs: &PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::DivNode(DivNode {
+                lhs: Box::new(EquationComponentType::Decimal(Decimal {
+                    value: self as f64,
+                })),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
+impl<'a> ops::Div<&'a PartEquation> for f64 {
+    type Output = PartEquation;
+
+    fn div(self, rhs: &PartEquation) -> Self::Output {
+        PartEquation {
+            eq: EquationComponentType::DivNode(DivNode {
+                lhs: Box::new(EquationComponentType::Decimal(Decimal { value: self })),
+                rhs: Box::new(rhs.eq.clone()),
+            }),
+        }
+    }
+}
+
 impl ops::Neg for PartEquation {
     type Output = PartEquation;
 
@@ -813,7 +1533,7 @@ impl ops::Neg for PartEquation {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Integer {
     pub value: i128,
 }
@@ -824,18 +1544,18 @@ impl Display for Integer {
     }
 }
 
-impl OperationNode for Integer {
-    fn simplify(self) -> EquationComponentType {
-        EquationComponentType::Integer(self)
+impl Integer {
+    fn simplify(&self) -> EquationComponentType {
+        EquationComponentType::Integer(*self)
     }
 
-    fn substitute(self) -> EquationComponentType {
+    fn substitute(&self) -> EquationComponentType {
         // TODO: implement
-        EquationComponentType::Integer(self)
+        EquationComponentType::Integer(*self)
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Decimal {
     pub value: f64,
 }
@@ -846,18 +1566,18 @@ impl Display for Decimal {
     }
 }
 
-impl OperationNode for Decimal {
-    fn simplify(self) -> EquationComponentType {
-        EquationComponentType::Decimal(self)
+impl Decimal {
+    fn simplify(&self) -> EquationComponentType {
+        EquationComponentType::Decimal(*self)
     }
 
-    fn substitute(self) -> EquationComponentType {
+    fn substitute(&self) -> EquationComponentType {
         // TODO: implement
-        EquationComponentType::Decimal(self)
+        EquationComponentType::Decimal(*self)
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct VariableNode {
     pub variable: char,
 }
@@ -868,18 +1588,18 @@ impl Display for VariableNode {
     }
 }
 
-impl OperationNode for VariableNode {
-    fn simplify(self) -> EquationComponentType {
-        EquationComponentType::VariableNode(self)
+impl VariableNode {
+    fn simplify(&self) -> EquationComponentType {
+        EquationComponentType::VariableNode(*self)
     }
 
-    fn substitute(self) -> EquationComponentType {
+    fn substitute(&self) -> EquationComponentType {
         // TODO: implement
-        EquationComponentType::VariableNode(self)
+        EquationComponentType::VariableNode(*self)
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AddNode {
     pub lhs: Box<EquationComponentType>,
     pub rhs: Box<EquationComponentType>,
@@ -891,8 +1611,8 @@ impl Display for AddNode {
     }
 }
 
-impl OperationNode for AddNode {
-    fn simplify(self) -> EquationComponentType {
+impl AddNode {
+    fn simplify(&self) -> EquationComponentType {
         let lhs: EquationComponentType = self.lhs.simplify();
         let rhs: EquationComponentType = self.rhs.simplify();
 
@@ -930,13 +1650,13 @@ impl OperationNode for AddNode {
         }
     }
 
-    fn substitute(self) -> EquationComponentType {
+    fn substitute(&self) -> EquationComponentType {
         // TODO: implement
-        EquationComponentType::AddNode(self)
+        EquationComponentType::AddNode(self.clone())
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SubNode {
     pub lhs: Box<EquationComponentType>,
     pub rhs: Box<EquationComponentType>,
@@ -948,8 +1668,8 @@ impl Display for SubNode {
     }
 }
 
-impl OperationNode for SubNode {
-    fn simplify(self) -> EquationComponentType {
+impl SubNode {
+    fn simplify(&self) -> EquationComponentType {
         let lhs: EquationComponentType = self.lhs.simplify();
         let rhs: EquationComponentType = self.rhs.simplify();
 
@@ -987,13 +1707,13 @@ impl OperationNode for SubNode {
         }
     }
 
-    fn substitute(self) -> EquationComponentType {
+    fn substitute(&self) -> EquationComponentType {
         // TODO: implement
-        EquationComponentType::SubNode(self)
+        EquationComponentType::SubNode(self.clone())
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MulNode {
     pub lhs: Box<EquationComponentType>,
     pub rhs: Box<EquationComponentType>,
@@ -1005,8 +1725,8 @@ impl Display for MulNode {
     }
 }
 
-impl OperationNode for MulNode {
-    fn simplify(self) -> EquationComponentType {
+impl MulNode {
+    fn simplify(&self) -> EquationComponentType {
         let lhs: EquationComponentType = self.lhs.simplify();
         let rhs: EquationComponentType = self.rhs.simplify();
 
@@ -1044,13 +1764,13 @@ impl OperationNode for MulNode {
         }
     }
 
-    fn substitute(self) -> EquationComponentType {
+    fn substitute(&self) -> EquationComponentType {
         // TODO: implement
-        EquationComponentType::MulNode(self)
+        EquationComponentType::MulNode(self.clone())
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DivNode {
     pub lhs: Box<EquationComponentType>,
     pub rhs: Box<EquationComponentType>,
@@ -1062,8 +1782,8 @@ impl Display for DivNode {
     }
 }
 
-impl OperationNode for DivNode {
-    fn simplify(self) -> EquationComponentType {
+impl DivNode {
+    fn simplify(&self) -> EquationComponentType {
         let lhs: EquationComponentType = self.lhs.simplify();
         let rhs: EquationComponentType = self.rhs.simplify();
 
@@ -1101,13 +1821,13 @@ impl OperationNode for DivNode {
         }
     }
 
-    fn substitute(self) -> EquationComponentType {
+    fn substitute(&self) -> EquationComponentType {
         // TODO: implement
-        EquationComponentType::DivNode(self)
+        EquationComponentType::DivNode(self.clone())
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PowNode {
     pub lhs: Box<EquationComponentType>, // lhs is the base
     pub rhs: Box<EquationComponentType>, // rhs is the exponent
@@ -1119,8 +1839,8 @@ impl Display for PowNode {
     }
 }
 
-impl OperationNode for PowNode {
-    fn simplify(self) -> EquationComponentType {
+impl PowNode {
+    fn simplify(&self) -> EquationComponentType {
         let lhs: EquationComponentType = self.lhs.simplify();
         let rhs: EquationComponentType = self.rhs.simplify();
 
@@ -1158,13 +1878,13 @@ impl OperationNode for PowNode {
         }
     }
 
-    fn substitute(self) -> EquationComponentType {
+    fn substitute(&self) -> EquationComponentType {
         // TODO: implement
-        EquationComponentType::PowNode(self)
+        EquationComponentType::PowNode(self.clone())
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MinusNode {
     pub value: Box<EquationComponentType>,
 }
@@ -1175,8 +1895,8 @@ impl Display for MinusNode {
     }
 }
 
-impl OperationNode for MinusNode {
-    fn simplify(self) -> EquationComponentType {
+impl MinusNode {
+    fn simplify(&self) -> EquationComponentType {
         let value: EquationComponentType = self.value.simplify();
 
         if let EquationComponentType::Integer(i) = value {
@@ -1190,8 +1910,8 @@ impl OperationNode for MinusNode {
         }
     }
 
-    fn substitute(self) -> EquationComponentType {
+    fn substitute(&self) -> EquationComponentType {
         // TODO: implement
-        EquationComponentType::MinusNode(self)
+        EquationComponentType::MinusNode(self.clone())
     }
 }
