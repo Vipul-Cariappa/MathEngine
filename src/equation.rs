@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -1590,7 +1591,123 @@ impl Display for AddNode {
 }
 
 impl AddNode {
+    fn extract(
+        &self,
+        variables: &mut Vec<char>,
+        integers: &mut Vec<i128>,
+        decimals: &mut Vec<f64>,
+        nodes: &mut Vec<EquationComponentType>,
+    ) {
+        match &*self.lhs {
+            EquationComponentType::Integer(i) => integers.push(i.value),
+            EquationComponentType::Decimal(i) => decimals.push(i.value),
+            EquationComponentType::VariableNode(i) => variables.push(i.variable),
+            EquationComponentType::AddNode(i) => i.extract(variables, integers, decimals, nodes),
+            n => nodes.push(n.simplify()),
+        };
+
+        match &*self.rhs {
+            EquationComponentType::Integer(i) => integers.push(i.value),
+            EquationComponentType::Decimal(i) => decimals.push(i.value),
+            EquationComponentType::VariableNode(i) => variables.push(i.variable),
+            EquationComponentType::AddNode(i) => i.extract(variables, integers, decimals, nodes),
+            n => nodes.push(n.simplify()),
+        };
+    }
+
     fn simplify(&self) -> EquationComponentType {
+        let mut variables: Vec<char> = Vec::new();
+        let mut integers: Vec<i128> = Vec::new();
+        let mut decimals: Vec<f64> = Vec::new();
+        let mut nodes: Vec<EquationComponentType> = Vec::new();
+
+        self.extract(&mut variables, &mut integers, &mut decimals, &mut nodes);
+
+        // println!("\n\nCall on: {}", self);
+        // dbg!(integers);
+        // dbg!(decimals);
+        // dbg!(variables);
+        // dbg!(nodes);
+
+        let mut sum_i128: i128 = 0;
+        integers.iter().for_each(|x| sum_i128 += x);
+
+        let mut sum_f64: f64 = 0.0;
+        decimals.iter().for_each(|x| sum_f64 += x);
+
+        let constant: EquationComponentType = {
+            if sum_f64 != 0.0 {
+                EquationComponentType::Integer(Integer { value: sum_i128 })
+            } else {
+                EquationComponentType::Decimal(Decimal {
+                    value: sum_f64 + sum_i128 as f64,
+                })
+            }
+        };
+
+        // let new_variables: Vec<EquationComponentType> = Vec::new();
+        let mut variable_occurrence: HashMap<char, i32> = HashMap::new();
+
+        for i in variables.iter() {
+            match variable_occurrence.get(&i) {
+                Some(n) => variable_occurrence.insert(*i, n + 1),
+                None => variable_occurrence.insert(*i, 1),
+            };
+        }
+
+        let mut variables_nodes: Vec<EquationComponentType> = Vec::new();
+
+        for (i, k) in variable_occurrence.iter() {
+            variables_nodes.push(EquationComponentType::MulNode(MulNode {
+                lhs: Box::new(EquationComponentType::VariableNode(VariableNode {
+                    variable: *i,
+                })),
+                rhs: Box::new(EquationComponentType::Integer(Integer {
+                    value: *k as i128,
+                })),
+            }));
+        }
+
+        variables_nodes.extend(nodes);
+
+        if variables_nodes.len() == 0 {
+            return constant;
+        }
+
+        if variables_nodes.len() == 1 {
+            return EquationComponentType::AddNode(AddNode {
+                lhs: Box::new(constant),
+                rhs: Box::new(variables_nodes.pop().unwrap().simplify()),
+            });
+        }
+
+        let mut base_node: Box<EquationComponentType> =
+            Box::new(EquationComponentType::AddNode(AddNode {
+                lhs: Box::new(variables_nodes.pop().unwrap().simplify()),
+                rhs: Box::new(variables_nodes.pop().unwrap().simplify()),
+            }));
+
+        loop {
+            match variables_nodes.pop() {
+                Some(i) => {
+                    base_node = Box::new(EquationComponentType::AddNode(AddNode {
+                        lhs: Box::new(i.simplify()),
+                        rhs: base_node,
+                    }));
+                }
+                None => break,
+            }
+        }
+
+        return EquationComponentType::AddNode(AddNode {
+            lhs: Box::new(constant),
+            rhs: base_node,
+        });
+
+        // return EquationComponentType::AddNode(self.clone());
+    }
+
+    fn _simplify(&self) -> EquationComponentType {
         let lhs: EquationComponentType = self.lhs.simplify();
         let rhs: EquationComponentType = self.rhs.simplify();
 
