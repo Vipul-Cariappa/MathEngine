@@ -153,7 +153,7 @@ impl PartEquation {
         }
     }
 
-    pub fn powi128(&self, exponent: i128) -> Self {
+    pub fn powi(&self, exponent: i128) -> Self {
         PartEquation {
             eq: EquationComponentType::PowNode(PowNode {
                 lhs: Box::new(self.eq.clone()),
@@ -173,7 +173,7 @@ impl PartEquation {
         }
     }
 
-    pub fn powf64(&self, exponent: f64) -> Self {
+    pub fn powf(&self, exponent: f64) -> Self {
         PartEquation {
             eq: EquationComponentType::PowNode(PowNode {
                 lhs: Box::new(self.eq.clone()),
@@ -1653,6 +1653,7 @@ impl AddNode {
         let mut sum_f64: f64 = 0.0;
         decimals.iter().for_each(|x| sum_f64 += x);
 
+        // TODO: no constant required if sum is 0
         let constant: EquationComponentType = {
             if sum_f64 == 0.0 {
                 EquationComponentType::Integer(Integer { value: sum_i128 })
@@ -1905,6 +1906,7 @@ impl MulNode {
         let mut product_f64: f64 = 1.0;
         decimals.iter().for_each(|x| product_f64 *= x);
 
+        // TODO: no constant required if product is 1
         let constant: EquationComponentType = {
             if product_f64 == 1.0 {
                 EquationComponentType::Integer(Integer {

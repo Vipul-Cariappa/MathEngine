@@ -92,6 +92,8 @@ pub fn do_something() {
     let x: PartEquation = PartEquation::new('x');
     let y: PartEquation = PartEquation::new('y');
     let z: PartEquation = PartEquation::new('z');
+    let two: PartEquation = PartEquation::newi(2 as i128);
+
     let eq: PartEquation = 14 - &x + &x * 65 / 24;
 
     println!("{} -> {}", x, eq);
@@ -121,6 +123,7 @@ pub fn do_something() {
     println!("\nNon Simplified: {}", eq2);
     println!("Simplified: {}", eq2.simplify());
 
+    let eq: PartEquation = 3 * &x * &x * &x * 7 * &two;
     println!("\nNon Simplified: {}", eq.simplify());
     println!("Simplified: {}", eq.simplify());
 }
