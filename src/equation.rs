@@ -7,7 +7,7 @@ use std::ops;
 use super::math;
 
 #[derive(Clone)]
-pub enum EquationComponentType {
+enum EquationComponentType {
     Integer(Integer),
     Decimal(Decimal),
     VariableNode(VariableNode),
@@ -88,7 +88,7 @@ impl EquationComponentType {
 
 #[derive(Debug, Clone)]
 pub struct PartEquation {
-    pub eq: EquationComponentType,
+    eq: EquationComponentType,
 }
 
 impl PartEquation {
@@ -1546,8 +1546,8 @@ impl ops::Neg for PartEquation {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Integer {
-    pub value: i128,
+struct Integer {
+    value: i128,
 }
 
 impl Display for Integer {
@@ -1557,8 +1557,8 @@ impl Display for Integer {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Decimal {
-    pub value: f64,
+struct Decimal {
+    value: f64,
 }
 
 impl Display for Decimal {
@@ -1568,8 +1568,8 @@ impl Display for Decimal {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct VariableNode {
-    pub variable: char,
+struct VariableNode {
+    variable: char,
 }
 
 impl Display for VariableNode {
@@ -1579,9 +1579,9 @@ impl Display for VariableNode {
 }
 
 #[derive(Debug, Clone)]
-pub struct AddNode {
-    pub lhs: Box<EquationComponentType>,
-    pub rhs: Box<EquationComponentType>,
+struct AddNode {
+    lhs: Box<EquationComponentType>,
+    rhs: Box<EquationComponentType>,
 }
 
 impl Display for AddNode {
@@ -1789,9 +1789,9 @@ impl AddNode {
 }
 
 #[derive(Debug, Clone)]
-pub struct SubNode {
-    pub lhs: Box<EquationComponentType>,
-    pub rhs: Box<EquationComponentType>,
+struct SubNode {
+    lhs: Box<EquationComponentType>,
+    rhs: Box<EquationComponentType>,
 }
 
 impl Display for SubNode {
@@ -1830,9 +1830,9 @@ impl SubNode {
 }
 
 #[derive(Debug, Clone)]
-pub struct MulNode {
-    pub lhs: Box<EquationComponentType>,
-    pub rhs: Box<EquationComponentType>,
+struct MulNode {
+    lhs: Box<EquationComponentType>,
+    rhs: Box<EquationComponentType>,
 }
 
 impl Display for MulNode {
@@ -1990,44 +1990,6 @@ impl MulNode {
         });
     }
 
-    fn _simplify(&self) -> EquationComponentType {
-        let lhs: EquationComponentType = self.lhs.simplify();
-        let rhs: EquationComponentType = self.rhs.simplify();
-
-        if let EquationComponentType::Integer(i) = lhs {
-            if let EquationComponentType::Integer(j) = rhs {
-                let result: i128 = i.value * j.value;
-                return EquationComponentType::Integer(Integer { value: result });
-            } else if let EquationComponentType::Decimal(j) = rhs {
-                let result: f64 = i.value as f64 * j.value;
-                return EquationComponentType::Decimal(Decimal { value: result });
-            } else {
-                return EquationComponentType::MulNode(MulNode {
-                    lhs: Box::new(EquationComponentType::Integer(i)),
-                    rhs: Box::new(rhs),
-                });
-            }
-        } else if let EquationComponentType::Decimal(i) = lhs {
-            if let EquationComponentType::Integer(j) = rhs {
-                let result: f64 = i.value * j.value as f64;
-                return EquationComponentType::Decimal(Decimal { value: result });
-            } else if let EquationComponentType::Decimal(j) = rhs {
-                let result: f64 = i.value * j.value;
-                return EquationComponentType::Decimal(Decimal { value: result });
-            } else {
-                return EquationComponentType::MulNode(MulNode {
-                    lhs: Box::new(EquationComponentType::Decimal(i)),
-                    rhs: Box::new(rhs),
-                });
-            }
-        } else {
-            return EquationComponentType::MulNode(MulNode {
-                lhs: Box::new(lhs),
-                rhs: Box::new(rhs),
-            });
-        }
-    }
-
     fn substitutei(&self, variable: char, value: i128) -> EquationComponentType {
         let lhs: EquationComponentType =
             EquationComponentType::substitutei(&self.lhs, variable, value).simplify();
@@ -2041,9 +2003,9 @@ impl MulNode {
 }
 
 #[derive(Debug, Clone)]
-pub struct DivNode {
-    pub lhs: Box<EquationComponentType>,
-    pub rhs: Box<EquationComponentType>,
+struct DivNode {
+    lhs: Box<EquationComponentType>,
+    rhs: Box<EquationComponentType>,
 }
 
 impl Display for DivNode {
@@ -2104,9 +2066,9 @@ impl DivNode {
 }
 
 #[derive(Debug, Clone)]
-pub struct PowNode {
-    pub lhs: Box<EquationComponentType>, // lhs is the base
-    pub rhs: Box<EquationComponentType>, // rhs is the exponent
+struct PowNode {
+    lhs: Box<EquationComponentType>, // lhs is the base
+    rhs: Box<EquationComponentType>, // rhs is the exponent
 }
 
 impl Display for PowNode {
@@ -2119,6 +2081,9 @@ impl PowNode {
     fn simplify(&self) -> EquationComponentType {
         let lhs: EquationComponentType = self.lhs.simplify();
         let rhs: EquationComponentType = self.rhs.simplify();
+
+        // TODO: implement the following simplification
+        // ((x ^ y) ^ z) -> x ^ (z * y)
 
         if let EquationComponentType::Integer(i) = lhs {
             if let EquationComponentType::Integer(j) = rhs {
@@ -2167,8 +2132,8 @@ impl PowNode {
 }
 
 #[derive(Debug, Clone)]
-pub struct MinusNode {
-    pub value: Box<EquationComponentType>,
+struct MinusNode {
+    value: Box<EquationComponentType>,
 }
 
 impl Display for MinusNode {
@@ -2198,5 +2163,18 @@ impl MinusNode {
         EquationComponentType::MinusNode(MinusNode {
             value: Box::new(value),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_part_equation() {
+        let x: PartEquation = PartEquation::new('x');
+        let eq: PartEquation = &x + 2;
+        let eq_str: String = eq.to_string();
+        assert_eq!(eq_str, String::from("(x + 2)"));
     }
 }
