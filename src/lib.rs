@@ -120,4 +120,7 @@ pub fn do_something() {
 
     println!("\nNon Simplified: {}", eq2);
     println!("Simplified: {}", eq2.simplify());
+
+    println!("\nNon Simplified: {}", eq.simplify());
+    println!("Simplified: {}", eq.simplify());
 }

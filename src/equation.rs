@@ -1663,7 +1663,7 @@ impl AddNode {
             }
         };
 
-        // updates nodes with MulNode if there are many AddNode's over a variable
+        // updating nodes with MulNode if there are many AddNode's over a variable
         // example: x + x -> 2 * x
         let mut variable_occurrence: HashMap<char, i32> = HashMap::new();
 
@@ -1694,6 +1694,12 @@ impl AddNode {
         }
 
         variables_nodes.extend(nodes);
+
+        // TODO: collect common terms of Variable MulNodes and create unique MulNodes
+        // example: (3 * x) + (x * 5) -> (8 * x)
+
+        // ? Should the following simplification be implemented:
+        // ? 5 + (x * y) -> (5 * x) + (5 * y)
 
         // creating new AddNode with all the computed and simplified nodes
         if variables_nodes.len() == 0 {
@@ -1835,7 +1841,154 @@ impl Display for MulNode {
 }
 
 impl MulNode {
+    fn extract(
+        &self,
+        variables: &mut Vec<char>,
+        integers: &mut Vec<i128>,
+        decimals: &mut Vec<f64>,
+        nodes: &mut Vec<EquationComponentType>,
+    ) {
+        match &*self.lhs {
+            EquationComponentType::Integer(i) => integers.push(i.value),
+            EquationComponentType::Decimal(i) => decimals.push(i.value),
+            EquationComponentType::VariableNode(i) => variables.push(i.variable),
+            EquationComponentType::MulNode(i) => i.extract(variables, integers, decimals, nodes),
+            n => {
+                let m = n.simplify();
+
+                match m {
+                    EquationComponentType::Integer(i) => integers.push(i.value),
+                    EquationComponentType::Decimal(i) => decimals.push(i.value),
+                    EquationComponentType::VariableNode(i) => variables.push(i.variable),
+                    EquationComponentType::MulNode(i) => {
+                        i.extract(variables, integers, decimals, nodes)
+                    }
+                    n => nodes.push(n),
+                }
+            }
+        };
+
+        match &*self.rhs {
+            EquationComponentType::Integer(i) => integers.push(i.value),
+            EquationComponentType::Decimal(i) => decimals.push(i.value),
+            EquationComponentType::VariableNode(i) => variables.push(i.variable),
+            EquationComponentType::MulNode(i) => i.extract(variables, integers, decimals, nodes),
+            n => {
+                let m = n.simplify();
+
+                match m {
+                    EquationComponentType::Integer(i) => integers.push(i.value),
+                    EquationComponentType::Decimal(i) => decimals.push(i.value),
+                    EquationComponentType::VariableNode(i) => variables.push(i.variable),
+                    EquationComponentType::MulNode(i) => {
+                        i.extract(variables, integers, decimals, nodes)
+                    }
+                    n => nodes.push(n),
+                }
+            }
+        };
+    }
+
     fn simplify(&self) -> EquationComponentType {
+        // extracting simplified child nodes
+        let mut variables: Vec<char> = Vec::new();
+        let mut integers: Vec<i128> = Vec::new();
+        let mut decimals: Vec<f64> = Vec::new();
+        let mut nodes: Vec<EquationComponentType> = Vec::new();
+
+        self.extract(&mut variables, &mut integers, &mut decimals, &mut nodes);
+
+        // calculating the constant's value
+        let mut product_i128: i128 = 1;
+        integers.iter().for_each(|x| product_i128 *= x);
+
+        let mut product_f64: f64 = 1.0;
+        decimals.iter().for_each(|x| product_f64 *= x);
+
+        let constant: EquationComponentType = {
+            if product_f64 == 1.0 {
+                EquationComponentType::Integer(Integer {
+                    value: product_i128,
+                })
+            } else {
+                EquationComponentType::Decimal(Decimal {
+                    value: product_f64 * product_i128 as f64,
+                })
+            }
+        };
+
+        // updating node with PowNode of there are many MulNode's over a variable
+        // example: x * x -> x ^ 2
+        let mut variable_occurrence: HashMap<char, i32> = HashMap::new();
+
+        for i in variables.iter() {
+            match variable_occurrence.get(&i) {
+                Some(n) => variable_occurrence.insert(*i, n + 1),
+                None => variable_occurrence.insert(*i, 1),
+            };
+        }
+
+        let mut variables_nodes: Vec<EquationComponentType> = Vec::new();
+
+        for (i, k) in variable_occurrence.iter() {
+            if *k > 1 {
+                variables_nodes.push(EquationComponentType::PowNode(PowNode {
+                    lhs: Box::new(EquationComponentType::VariableNode(VariableNode {
+                        variable: *i,
+                    })),
+                    rhs: Box::new(EquationComponentType::Integer(Integer {
+                        value: *k as i128,
+                    })),
+                }));
+            } else {
+                variables_nodes.push(EquationComponentType::VariableNode(VariableNode {
+                    variable: (*i),
+                }));
+            }
+        }
+
+        variables_nodes.extend(nodes);
+
+        // TODO: collect common terms of Variable MulNodes and create unique PowNodes
+        // example: (x ^ 2) * (x ^ 5) -> (x ^ 7)
+
+        // creating new MulNode with all the computed and simplified nodes
+        if variables_nodes.len() == 0 {
+            return constant;
+        }
+
+        if variables_nodes.len() == 1 {
+            return EquationComponentType::MulNode(MulNode {
+                lhs: Box::new(constant),
+                rhs: Box::new(variables_nodes.pop().unwrap().simplify()),
+            });
+        }
+
+        let mut base_node: Box<EquationComponentType> =
+            Box::new(EquationComponentType::MulNode(MulNode {
+                lhs: Box::new(variables_nodes.pop().unwrap().simplify()),
+                rhs: Box::new(variables_nodes.pop().unwrap().simplify()),
+            }));
+
+        loop {
+            match variables_nodes.pop() {
+                Some(i) => {
+                    base_node = Box::new(EquationComponentType::MulNode(MulNode {
+                        lhs: Box::new(i.simplify()),
+                        rhs: base_node,
+                    }));
+                }
+                None => break,
+            }
+        }
+
+        return EquationComponentType::MulNode(MulNode {
+            lhs: Box::new(constant),
+            rhs: base_node,
+        });
+    }
+
+    fn _simplify(&self) -> EquationComponentType {
         let lhs: EquationComponentType = self.lhs.simplify();
         let rhs: EquationComponentType = self.rhs.simplify();
 
