@@ -1603,7 +1603,18 @@ impl AddNode {
             EquationComponentType::Decimal(i) => decimals.push(i.value),
             EquationComponentType::VariableNode(i) => variables.push(i.variable),
             EquationComponentType::AddNode(i) => i.extract(variables, integers, decimals, nodes),
-            n => nodes.push(n.simplify()),
+            n => {
+                let m = n.simplify();
+                match m {
+                    EquationComponentType::Integer(i) => integers.push(i.value),
+                    EquationComponentType::Decimal(i) => decimals.push(i.value),
+                    EquationComponentType::VariableNode(i) => variables.push(i.variable),
+                    EquationComponentType::AddNode(i) => {
+                        i.extract(variables, integers, decimals, nodes)
+                    }
+                    n => nodes.push(n),
+                }
+            }
         };
 
         match &*self.rhs {
@@ -1611,11 +1622,23 @@ impl AddNode {
             EquationComponentType::Decimal(i) => decimals.push(i.value),
             EquationComponentType::VariableNode(i) => variables.push(i.variable),
             EquationComponentType::AddNode(i) => i.extract(variables, integers, decimals, nodes),
-            n => nodes.push(n.simplify()),
+            n => {
+                let m = n.simplify();
+                match m {
+                    EquationComponentType::Integer(i) => integers.push(i.value),
+                    EquationComponentType::Decimal(i) => decimals.push(i.value),
+                    EquationComponentType::VariableNode(i) => variables.push(i.variable),
+                    EquationComponentType::AddNode(i) => {
+                        i.extract(variables, integers, decimals, nodes)
+                    }
+                    n => nodes.push(n),
+                }
+            }
         };
     }
 
     fn simplify(&self) -> EquationComponentType {
+        // extracting simplified child nodes
         let mut variables: Vec<char> = Vec::new();
         let mut integers: Vec<i128> = Vec::new();
         let mut decimals: Vec<f64> = Vec::new();
@@ -1623,12 +1646,7 @@ impl AddNode {
 
         self.extract(&mut variables, &mut integers, &mut decimals, &mut nodes);
 
-        // println!("\n\nCall on: {}", self);
-        // dbg!(integers);
-        // dbg!(decimals);
-        // dbg!(variables);
-        // dbg!(nodes);
-
+        // calculating the constant's value
         let mut sum_i128: i128 = 0;
         integers.iter().for_each(|x| sum_i128 += x);
 
@@ -1636,7 +1654,7 @@ impl AddNode {
         decimals.iter().for_each(|x| sum_f64 += x);
 
         let constant: EquationComponentType = {
-            if sum_f64 != 0.0 {
+            if sum_f64 == 0.0 {
                 EquationComponentType::Integer(Integer { value: sum_i128 })
             } else {
                 EquationComponentType::Decimal(Decimal {
@@ -1645,7 +1663,8 @@ impl AddNode {
             }
         };
 
-        // let new_variables: Vec<EquationComponentType> = Vec::new();
+        // updates nodes with MulNode if there are many AddNode's over a variable
+        // example: x + x -> 2 * x
         let mut variable_occurrence: HashMap<char, i32> = HashMap::new();
 
         for i in variables.iter() {
@@ -1658,18 +1677,25 @@ impl AddNode {
         let mut variables_nodes: Vec<EquationComponentType> = Vec::new();
 
         for (i, k) in variable_occurrence.iter() {
-            variables_nodes.push(EquationComponentType::MulNode(MulNode {
-                lhs: Box::new(EquationComponentType::VariableNode(VariableNode {
+            if *k > 1 {
+                variables_nodes.push(EquationComponentType::MulNode(MulNode {
+                    lhs: Box::new(EquationComponentType::VariableNode(VariableNode {
+                        variable: *i,
+                    })),
+                    rhs: Box::new(EquationComponentType::Integer(Integer {
+                        value: *k as i128,
+                    })),
+                }));
+            } else {
+                variables_nodes.push(EquationComponentType::VariableNode(VariableNode {
                     variable: *i,
-                })),
-                rhs: Box::new(EquationComponentType::Integer(Integer {
-                    value: *k as i128,
-                })),
-            }));
+                }));
+            }
         }
 
         variables_nodes.extend(nodes);
 
+        // creating new AddNode with all the computed and simplified nodes
         if variables_nodes.len() == 0 {
             return constant;
         }
@@ -1703,8 +1729,6 @@ impl AddNode {
             lhs: Box::new(constant),
             rhs: base_node,
         });
-
-        // return EquationComponentType::AddNode(self.clone());
     }
 
     fn _simplify(&self) -> EquationComponentType {
@@ -1774,38 +1798,16 @@ impl SubNode {
         let lhs: EquationComponentType = self.lhs.simplify();
         let rhs: EquationComponentType = self.rhs.simplify();
 
-        if let EquationComponentType::Integer(i) = lhs {
-            if let EquationComponentType::Integer(j) = rhs {
-                let result: i128 = i.value - j.value;
-                return EquationComponentType::Integer(Integer { value: result });
-            } else if let EquationComponentType::Decimal(j) = rhs {
-                let result: f64 = i.value as f64 - j.value;
-                return EquationComponentType::Decimal(Decimal { value: result });
-            } else {
-                return EquationComponentType::SubNode(SubNode {
-                    lhs: Box::new(EquationComponentType::Integer(i)),
-                    rhs: Box::new(rhs),
-                });
-            }
-        } else if let EquationComponentType::Decimal(i) = lhs {
-            if let EquationComponentType::Integer(j) = rhs {
-                let result: f64 = i.value - j.value as f64;
-                return EquationComponentType::Decimal(Decimal { value: result });
-            } else if let EquationComponentType::Decimal(j) = rhs {
-                let result: f64 = i.value - j.value;
-                return EquationComponentType::Decimal(Decimal { value: result });
-            } else {
-                return EquationComponentType::SubNode(SubNode {
-                    lhs: Box::new(EquationComponentType::Decimal(i)),
-                    rhs: Box::new(rhs),
-                });
-            }
-        } else {
-            return EquationComponentType::SubNode(SubNode {
-                lhs: Box::new(lhs),
-                rhs: Box::new(rhs),
-            });
-        }
+        return EquationComponentType::AddNode(AddNode {
+            lhs: Box::new(lhs),
+            rhs: Box::new(
+                EquationComponentType::MinusNode(MinusNode {
+                    value: Box::new(rhs),
+                })
+                .simplify(),
+            ),
+        })
+        .simplify();
     }
 
     fn substitutei(&self, variable: char, value: i128) -> EquationComponentType {

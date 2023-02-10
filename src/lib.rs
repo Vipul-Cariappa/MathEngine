@@ -90,6 +90,8 @@ pub fn do_something() {
 
     // *** check operations based on reference ***
     let x: PartEquation = PartEquation::new('x');
+    let y: PartEquation = PartEquation::new('y');
+    let z: PartEquation = PartEquation::new('z');
     let eq: PartEquation = 14 - &x + &x * 65 / 24;
 
     println!("{} -> {}", x, eq);
@@ -104,6 +106,18 @@ pub fn do_something() {
     // *** updated simplification ***
     println!("\n");
     let eq: PartEquation = &x + &x + &x + 5 + 4 + 3 + 2;
+    let eq_error: PartEquation = &x + &x + &x + 5 + 4 + 3 + 2 * &eq_i * 4;
+    let eq_minus: PartEquation = &x - &x - &x - 5 - 4 - 3 - 2;
+    let eq2: PartEquation =
+        &x + &x + &x + 5 + 4 + 3 + 2 * &eq_i * 4 + &y + &z + (&z * 6) + (&y / 5);
     println!("Non Simplified: {}", eq);
     println!("Simplified: {}", eq.simplify());
+    println!("Non Simplified: {}", eq_minus);
+    println!("Simplified: {}", eq_minus.simplify());
+
+    println!("\nNon Simplified: {}", eq_error);
+    println!("Simplified: {}", eq_error.simplify());
+
+    println!("\nNon Simplified: {}", eq2);
+    println!("Simplified: {}", eq2.simplify());
 }
