@@ -71,9 +71,15 @@ pub fn do_something() {
     println!("Simplified: {}", eq2.simplify());
 
     let eq: PartEquation = 3 * &x * &x * &x * 7 * &two;
-    println!("\nNon Simplified: {}", eq.simplify());
+    println!("\nNon Simplified: {}", eq);
     println!("Simplified: {}", eq.simplify());
 
     println!("\n\n{}", x.pow(&y.pow(&z)));
     println!("\n\n{}", x.pow(&y).pow(&z));
+
+    // *** check pre_simplification ***
+    let eq: PartEquation = 1 + &x;
+    println!("{} -> {}", eq, eq.simplify());
+    let eq: PartEquation = 1 * &x;
+    println!("{} -> {}", eq, eq.simplify());
 }
