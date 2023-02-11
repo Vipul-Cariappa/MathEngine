@@ -80,6 +80,10 @@ pub fn do_something() {
     // *** check pre_simplification ***
     let eq: PartEquation = 1 + &x;
     println!("{} -> {}", eq, eq.simplify());
-    let eq: PartEquation = 1 * &x;
+
+    let eq: PartEquation = 1 - &x;
+    println!("{} -> {}", eq, eq.simplify());
+
+    let eq: PartEquation = 1 * 4 / &y * &x;
     println!("{} -> {}", eq, eq.simplify());
 }

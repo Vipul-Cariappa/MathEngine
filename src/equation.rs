@@ -58,9 +58,21 @@ impl EquationComponentType {
             EquationComponentType::Decimal(i) => EquationComponentType::Decimal(*i),
             EquationComponentType::VariableNode(i) => EquationComponentType::VariableNode(*i),
             EquationComponentType::MinusNode(i) => match &*i.value {
-                i @ EquationComponentType::Integer(_) => i.clone(),
-                i @ EquationComponentType::Decimal(_) => i.clone(),
-                i @ EquationComponentType::VariableNode(_) => i.clone(),
+                i @ EquationComponentType::Integer(_) => {
+                    EquationComponentType::MinusNode(MinusNode {
+                        value: Box::new(i.clone()),
+                    })
+                }
+                i @ EquationComponentType::Decimal(_) => {
+                    EquationComponentType::MinusNode(MinusNode {
+                        value: Box::new(i.clone()),
+                    })
+                }
+                i @ EquationComponentType::VariableNode(_) => {
+                    EquationComponentType::MinusNode(MinusNode {
+                        value: Box::new(i.clone()),
+                    })
+                }
                 n => n.post_simplify(),
             },
             EquationComponentType::AddNode(i) => {
@@ -100,43 +112,12 @@ impl EquationComponentType {
                     })
                 }
             }
-            EquationComponentType::SubNode(i) => {
-                let lhs = match &*i.lhs {
-                    i @ EquationComponentType::Integer(_) => i.clone(),
-                    i @ EquationComponentType::Decimal(_) => i.clone(),
-                    i @ EquationComponentType::VariableNode(_) => i.clone(),
-                    n => n.post_simplify(),
-                };
-
-                let rhs = match &*i.rhs {
-                    i @ EquationComponentType::Integer(_) => i.clone(),
-                    i @ EquationComponentType::Decimal(_) => i.clone(),
-                    i @ EquationComponentType::VariableNode(_) => i.clone(),
-                    n => n.post_simplify(),
-                };
-
-                if let EquationComponentType::VariableNode(_) = rhs {
-                    EquationComponentType::SubNode(SubNode {
-                        lhs: Box::new(rhs),
-                        rhs: Box::new(lhs),
-                    })
-                } else if let EquationComponentType::Integer(_) = lhs {
-                    EquationComponentType::SubNode(SubNode {
-                        lhs: Box::new(rhs),
-                        rhs: Box::new(lhs),
-                    })
-                } else if let EquationComponentType::Decimal(_) = lhs {
-                    EquationComponentType::SubNode(SubNode {
-                        lhs: Box::new(rhs),
-                        rhs: Box::new(lhs),
-                    })
-                } else {
-                    EquationComponentType::SubNode(SubNode {
-                        lhs: Box::new(lhs),
-                        rhs: Box::new(rhs),
-                    })
-                }
-            }
+            EquationComponentType::SubNode(i) => EquationComponentType::AddNode(AddNode {
+                lhs: Box::new(i.lhs.post_simplify()),
+                rhs: Box::new(EquationComponentType::MinusNode(MinusNode {
+                    value: Box::new(i.rhs.post_simplify()),
+                })),
+            }),
             EquationComponentType::MulNode(i) => {
                 let lhs = match &*i.lhs {
                     i @ EquationComponentType::Integer(_) => i.clone(),
@@ -174,80 +155,14 @@ impl EquationComponentType {
                     })
                 }
             }
-            EquationComponentType::DivNode(i) => {
-                let lhs = match &*i.lhs {
-                    i @ EquationComponentType::Integer(_) => i.clone(),
-                    i @ EquationComponentType::Decimal(_) => i.clone(),
-                    i @ EquationComponentType::VariableNode(_) => i.clone(),
-                    n => n.post_simplify(),
-                };
-
-                let rhs = match &*i.rhs {
-                    i @ EquationComponentType::Integer(_) => i.clone(),
-                    i @ EquationComponentType::Decimal(_) => i.clone(),
-                    i @ EquationComponentType::VariableNode(_) => i.clone(),
-                    n => n.post_simplify(),
-                };
-
-                if let EquationComponentType::VariableNode(_) = rhs {
-                    EquationComponentType::DivNode(DivNode {
-                        lhs: Box::new(rhs),
-                        rhs: Box::new(lhs),
-                    })
-                } else if let EquationComponentType::Integer(_) = lhs {
-                    EquationComponentType::DivNode(DivNode {
-                        lhs: Box::new(rhs),
-                        rhs: Box::new(lhs),
-                    })
-                } else if let EquationComponentType::Decimal(_) = lhs {
-                    EquationComponentType::DivNode(DivNode {
-                        lhs: Box::new(rhs),
-                        rhs: Box::new(lhs),
-                    })
-                } else {
-                    EquationComponentType::DivNode(DivNode {
-                        lhs: Box::new(lhs),
-                        rhs: Box::new(rhs),
-                    })
-                }
-            }
-            EquationComponentType::PowNode(i) => {
-                let lhs = match &*i.lhs {
-                    i @ EquationComponentType::Integer(_) => i.clone(),
-                    i @ EquationComponentType::Decimal(_) => i.clone(),
-                    i @ EquationComponentType::VariableNode(_) => i.clone(),
-                    n => n.post_simplify(),
-                };
-
-                let rhs = match &*i.rhs {
-                    i @ EquationComponentType::Integer(_) => i.clone(),
-                    i @ EquationComponentType::Decimal(_) => i.clone(),
-                    i @ EquationComponentType::VariableNode(_) => i.clone(),
-                    n => n.post_simplify(),
-                };
-
-                if let EquationComponentType::VariableNode(_) = rhs {
-                    EquationComponentType::AddNode(AddNode {
-                        lhs: Box::new(rhs),
-                        rhs: Box::new(lhs),
-                    })
-                } else if let EquationComponentType::Integer(_) = lhs {
-                    EquationComponentType::AddNode(AddNode {
-                        lhs: Box::new(rhs),
-                        rhs: Box::new(lhs),
-                    })
-                } else if let EquationComponentType::Decimal(_) = lhs {
-                    EquationComponentType::AddNode(AddNode {
-                        lhs: Box::new(rhs),
-                        rhs: Box::new(lhs),
-                    })
-                } else {
-                    EquationComponentType::AddNode(AddNode {
-                        lhs: Box::new(lhs),
-                        rhs: Box::new(rhs),
-                    })
-                }
-            }
+            EquationComponentType::DivNode(i) => EquationComponentType::DivNode(DivNode {
+                lhs: Box::new(i.lhs.post_simplify()),
+                rhs: Box::new(i.rhs.post_simplify()),
+            }),
+            EquationComponentType::PowNode(i) => EquationComponentType::PowNode(PowNode {
+                lhs: Box::new(i.lhs.post_simplify()),
+                rhs: Box::new(i.rhs.post_simplify()),
+            }),
         }
     }
 
