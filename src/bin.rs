@@ -17,7 +17,7 @@ pub fn do_something() {
     // *** checking initializing ***
     println!("5 + x * 4 = {}", 5 + &x * 4);
 
-    let i: i128 = 34;
+    let i: i64 = 34;
     let eq_i: PartEquation = 5 + PartEquation::newi(i) * 4;
     let eq_i_s: PartEquation = eq_i.simplify();
     let eq_i: PartEquation = 5 + PartEquation::newi(i) * 4;
@@ -39,7 +39,7 @@ pub fn do_something() {
     let x: PartEquation = PartEquation::new('x');
     let y: PartEquation = PartEquation::new('y');
     let z: PartEquation = PartEquation::new('z');
-    let two: PartEquation = PartEquation::newi(2 as i128);
+    let two: PartEquation = PartEquation::newi(2);
 
     let eq: PartEquation = 14 - &x + &x * 65 / 24;
 
@@ -82,6 +82,9 @@ pub fn do_something() {
     println!("{} -> {}", eq, eq.simplify());
 
     let eq: PartEquation = 1 - &x;
+    println!("{} -> {}", eq, eq.simplify());
+
+    let eq = -(-(-&x));
     println!("{} -> {}", eq, eq.simplify());
 
     let eq: PartEquation = 1 * 4 / &y * &x;

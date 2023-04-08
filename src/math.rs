@@ -7,6 +7,15 @@ pub fn powi128(base: i128, exponent: i128) -> i128 {
     return result;
 }
 
+pub fn powi64(base: i64, exponent: i64) -> i64 {
+    let mut result: i64 = 1;
+    for _i in 1..=exponent {
+        result *= base;
+    }
+
+    return result;
+}
+
 pub fn powf64(base: f64, exponent: f64) -> f64 {
     internal_powf64(base, exponent, 0.0000001f64)
 }
