@@ -199,7 +199,8 @@ impl EquationComponentType {
                 let mut sum_f64: f64 = 0.0;
                 decimals.iter().for_each(|x| sum_f64 += x);
 
-                // TODO: no constant required if sum is 0
+                // no constant required if sum is 0
+                let constant_is_zero: bool = sum_f64 + sum_i64 as f64 == 0.0;
                 let constant: EquationComponentType = {
                     if sum_f64 == 0.0 {
                         EquationComponentType::Integer(sum_i64)
@@ -248,33 +249,39 @@ impl EquationComponentType {
                 }
 
                 if variables_nodes.len() == 1 {
+                    if constant_is_zero {
+                        return variables_nodes.pop().unwrap().simplify();
+                    }
+
                     return EquationComponentType::AddNode {
                         lhs: Box::new(constant),
                         rhs: Box::new(variables_nodes.pop().unwrap().simplify()),
                     };
                 }
 
-                let mut base_node: Box<EquationComponentType> =
-                    Box::new(EquationComponentType::AddNode {
-                        lhs: Box::new(variables_nodes.pop().unwrap().simplify()),
-                        rhs: Box::new(variables_nodes.pop().unwrap().simplify()),
-                    });
+                let mut base_node: EquationComponentType = EquationComponentType::AddNode {
+                    lhs: Box::new(variables_nodes.pop().unwrap().simplify()),
+                    rhs: Box::new(variables_nodes.pop().unwrap().simplify()),
+                };
 
                 loop {
                     match variables_nodes.pop() {
                         Some(i) => {
-                            base_node = Box::new(EquationComponentType::AddNode {
+                            base_node = EquationComponentType::AddNode {
                                 lhs: Box::new(i.simplify()),
-                                rhs: base_node,
-                            });
+                                rhs: Box::new(base_node),
+                            };
                         }
                         None => break,
                     }
                 }
 
+                if constant_is_zero {
+                    return base_node;
+                }
                 return EquationComponentType::AddNode {
                     lhs: Box::new(constant),
-                    rhs: base_node,
+                    rhs: Box::new(base_node),
                 };
             } // End EquationComponentType::AddNode
 
@@ -305,7 +312,8 @@ impl EquationComponentType {
                 let mut product_f64: f64 = 1.0;
                 decimals.iter().for_each(|x| product_f64 *= x);
 
-                // TODO: no constant required if product is 1
+                // no constant required if product is 1
+                let constant_is_one: bool = product_f64 * product_i64 as f64 == 1.0;
                 let constant: EquationComponentType = {
                     if product_f64 == 1.0 {
                         EquationComponentType::Integer(product_i64)
@@ -349,33 +357,38 @@ impl EquationComponentType {
                 }
 
                 if variables_nodes.len() == 1 {
+                    if constant_is_one {
+                        return variables_nodes.pop().unwrap().simplify();
+                    }
                     return EquationComponentType::MulNode {
                         lhs: Box::new(constant),
                         rhs: Box::new(variables_nodes.pop().unwrap().simplify()),
                     };
                 }
 
-                let mut base_node: Box<EquationComponentType> =
-                    Box::new(EquationComponentType::MulNode {
-                        lhs: Box::new(variables_nodes.pop().unwrap().simplify()),
-                        rhs: Box::new(variables_nodes.pop().unwrap().simplify()),
-                    });
+                let mut base_node: EquationComponentType = EquationComponentType::MulNode {
+                    lhs: Box::new(variables_nodes.pop().unwrap().simplify()),
+                    rhs: Box::new(variables_nodes.pop().unwrap().simplify()),
+                };
 
                 loop {
                     match variables_nodes.pop() {
                         Some(i) => {
-                            base_node = Box::new(EquationComponentType::MulNode {
+                            base_node = EquationComponentType::MulNode {
                                 lhs: Box::new(i.simplify()),
-                                rhs: base_node,
-                            });
+                                rhs: Box::new(base_node),
+                            };
                         }
                         None => break,
                     }
                 }
 
+                if constant_is_one {
+                    return base_node;
+                }
                 return EquationComponentType::MulNode {
                     lhs: Box::new(constant),
-                    rhs: base_node,
+                    rhs: Box::new(base_node),
                 };
             } // End EquationComponentType::MulNod
 

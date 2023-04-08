@@ -89,4 +89,10 @@ pub fn do_something() {
 
     let eq: PartEquation = 1 * 4 / &y * &x;
     println!("{} -> {}", eq, eq.simplify());
+
+    let eq: PartEquation = 1 + &x - 1;
+    println!("{} -> {}", eq, eq.simplify());
+
+    let eq: PartEquation = 0.5 * &x * 2;
+    println!("{} -> {}", eq, eq.simplify());
 }
