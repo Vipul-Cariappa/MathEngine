@@ -79,20 +79,32 @@ pub fn do_something() {
 
     // *** check pre_simplification ***
     let eq: PartEquation = 1 + &x;
-    println!("{} -> {}", eq, eq.simplify());
+    println!("\n{} -> {}", eq, eq.simplify());
 
     let eq: PartEquation = 1 - &x;
-    println!("{} -> {}", eq, eq.simplify());
+    println!("\n{} -> {}", eq, eq.simplify());
 
     let eq = -(-(-&x));
-    println!("{} -> {}", eq, eq.simplify());
+    println!("\n{} -> {}", eq, eq.simplify());
 
     let eq: PartEquation = 1 * 4 / &y * &x;
-    println!("{} -> {}", eq, eq.simplify());
+    println!("\n{} -> {}", eq, eq.simplify());
 
     let eq: PartEquation = 1 + &x - 1;
-    println!("{} -> {}", eq, eq.simplify());
+    println!("\n{} -> {}", eq, eq.simplify());
 
     let eq: PartEquation = 0.5 * &x * 2;
-    println!("{} -> {}", eq, eq.simplify());
+    println!("\n{} -> {}", eq, eq.simplify());
+
+    let eq: PartEquation = (3 * &x) + &x;
+    println!("\n{} -> {}", eq, eq.simplify());
+
+    let eq: PartEquation = (3 * &x) + (&x * 5);
+    println!("\n{} -> {}", eq, eq.simplify());
+
+    let eq: PartEquation = &x + &x + &x;
+    println!("\n{} -> {}", eq, eq.simplify());
+
+    let eq: PartEquation = x.powi64(3) * x.powi64(2) * &x;
+    println!("\n{} -> {}", eq, eq.simplify());
 }

@@ -28,8 +28,8 @@ enum EquationComponentType {
         rhs: Box<EquationComponentType>,
     },
     PowNode {
-        lhs: Box<EquationComponentType>,
-        rhs: Box<EquationComponentType>,
+        lhs: Box<EquationComponentType>, // base
+        rhs: Box<EquationComponentType>, // exponent
     },
     MinusNode(Box<EquationComponentType>),
 }
@@ -222,23 +222,145 @@ impl EquationComponentType {
 
                 let mut variables_nodes: Vec<EquationComponentType> = Vec::new();
 
-                for (i, k) in variable_occurrence.iter() {
-                    if *k > 1 {
+                for (i, k) in variable_occurrence.into_iter() {
+                    if k > 1 {
                         variables_nodes.push(EquationComponentType::MulNode {
-                            lhs: Box::new(EquationComponentType::VariableNode(*i)),
-                            rhs: Box::new(EquationComponentType::Integer(*k)),
+                            lhs: Box::new(EquationComponentType::VariableNode(i)),
+                            rhs: Box::new(EquationComponentType::Integer(k)),
                         });
                     } else {
-                        variables_nodes.push(EquationComponentType::VariableNode(*i));
+                        variables_nodes.push(EquationComponentType::VariableNode(i));
                     }
                 }
 
                 variables_nodes.extend(nodes);
 
-                // TODO: collect common terms of Variable MulNodes and create unique MulNodes
+                // collect common terms of Variable MulNodes and create unique MulNodes
                 // example: (3 * x) + x -> (4 * x)
                 // example: (3 * x) + (x * 5) -> (8 * x)
-                // example: (x / 2) + x -> ((3 * x) / 2)
+
+                let mut variable_occurrence: HashMap<char, EquationComponentType> = HashMap::new();
+
+                variables_nodes.retain(|node_to_simplify| {
+                    if let EquationComponentType::MulNode { lhs, rhs } = node_to_simplify {
+                        if let EquationComponentType::VariableNode(v) = **lhs {
+                            if let EquationComponentType::Integer(c) = **rhs {
+                                // variable * integer
+                                match variable_occurrence.remove(&v) {
+                                    Some(x) => {
+                                        if let EquationComponentType::Integer(o) = x {
+                                            variable_occurrence
+                                                .insert(v, EquationComponentType::Integer(o + c));
+                                        }
+                                        if let EquationComponentType::Decimal(o) = x {
+                                            variable_occurrence.insert(
+                                                v,
+                                                EquationComponentType::Decimal(o + c as f64),
+                                            );
+                                        }
+                                    }
+                                    None => {
+                                        variable_occurrence
+                                            .insert(v, EquationComponentType::Integer(c));
+                                    }
+                                };
+                                return false;
+                            } else if let EquationComponentType::Decimal(c) = **rhs {
+                                // variable * decimal
+                                match variable_occurrence.remove(&v) {
+                                    Some(x) => {
+                                        if let EquationComponentType::Integer(o) = x {
+                                            variable_occurrence.insert(
+                                                v,
+                                                EquationComponentType::Decimal(o as f64 + c),
+                                            );
+                                        }
+                                        if let EquationComponentType::Decimal(o) = x {
+                                            variable_occurrence
+                                                .insert(v, EquationComponentType::Decimal(o + c));
+                                        }
+                                    }
+                                    None => {
+                                        variable_occurrence
+                                            .insert(v, EquationComponentType::Decimal(c));
+                                    }
+                                };
+                                return false;
+                            }
+                        } else if let EquationComponentType::VariableNode(v) = **rhs {
+                            if let EquationComponentType::Integer(c) = **lhs {
+                                // integer * variable
+                                match variable_occurrence.remove(&v) {
+                                    Some(x) => {
+                                        if let EquationComponentType::Integer(o) = x {
+                                            variable_occurrence
+                                                .insert(v, EquationComponentType::Integer(o + c));
+                                        }
+                                        if let EquationComponentType::Decimal(o) = x {
+                                            variable_occurrence.insert(
+                                                v,
+                                                EquationComponentType::Decimal(o + c as f64),
+                                            );
+                                        }
+                                    }
+                                    None => {
+                                        variable_occurrence
+                                            .insert(v, EquationComponentType::Integer(c));
+                                    }
+                                };
+                                return false;
+                            } else if let EquationComponentType::Decimal(c) = **lhs {
+                                // decimal * variable
+                                match variable_occurrence.remove(&v) {
+                                    Some(x) => {
+                                        if let EquationComponentType::Integer(o) = x {
+                                            variable_occurrence.insert(
+                                                v,
+                                                EquationComponentType::Decimal(o as f64 + c),
+                                            );
+                                        }
+                                        if let EquationComponentType::Decimal(o) = x {
+                                            variable_occurrence
+                                                .insert(v, EquationComponentType::Decimal(o + c));
+                                        }
+                                    }
+                                    None => {
+                                        variable_occurrence
+                                            .insert(v, EquationComponentType::Decimal(c));
+                                    }
+                                };
+                                return false;
+                            }
+                        }
+                    }
+
+                    if let EquationComponentType::VariableNode(v) = node_to_simplify {
+                        match variable_occurrence.remove(&v) {
+                            Some(x) => {
+                                if let EquationComponentType::Integer(o) = x {
+                                    variable_occurrence
+                                        .insert(*v, EquationComponentType::Integer(o + 1));
+                                }
+                                if let EquationComponentType::Decimal(o) = x {
+                                    variable_occurrence
+                                        .insert(*v, EquationComponentType::Decimal(o + 1.0));
+                                }
+                            }
+                            None => {
+                                variable_occurrence.insert(*v, EquationComponentType::Integer(1));
+                            }
+                        };
+                        return false;
+                    }
+                    return true;
+                });
+
+                for (k, v) in variable_occurrence.into_iter() {
+                    variables_nodes.push(EquationComponentType::MulNode {
+                        lhs: Box::new(EquationComponentType::VariableNode(k)),
+                        rhs: Box::new(v),
+                    })
+                }
 
                 // ? Should the following simplification be implemented:
                 // ? 5 + (x * y) -> (5 * x) + (5 * y)
@@ -335,21 +457,100 @@ impl EquationComponentType {
 
                 let mut variables_nodes: Vec<EquationComponentType> = Vec::new();
 
-                for (i, k) in variable_occurrence.iter() {
-                    if *k > 1 {
+                for (i, k) in variable_occurrence.into_iter() {
+                    if k > 1 {
                         variables_nodes.push(EquationComponentType::PowNode {
-                            lhs: Box::new(EquationComponentType::VariableNode(*i)),
-                            rhs: Box::new(EquationComponentType::Integer(*k)),
+                            lhs: Box::new(EquationComponentType::VariableNode(i)),
+                            rhs: Box::new(EquationComponentType::Integer(k)),
                         });
                     } else {
-                        variables_nodes.push(EquationComponentType::VariableNode(*i));
+                        variables_nodes.push(EquationComponentType::VariableNode(i));
                     }
                 }
 
                 variables_nodes.extend(nodes);
 
-                // TODO: collect common terms of Variable MulNodes and create unique PowNodes
+                // collect common terms of Variable MulNodes and create unique PowNodes
                 // example: (x ^ 2) * (x ^ 5) -> (x ^ 7)
+                
+                let mut variable_occurrence: HashMap<char, EquationComponentType> = HashMap::new();
+
+                variables_nodes.retain(|node_to_simplify| {
+                    if let EquationComponentType::PowNode { lhs, rhs } = node_to_simplify {
+                        if let EquationComponentType::VariableNode(v) = **lhs {
+                            if let EquationComponentType::Integer(c) = **rhs {
+                                // variable * integer
+                                match variable_occurrence.remove(&v) {
+                                    Some(x) => {
+                                        if let EquationComponentType::Integer(o) = x {
+                                            variable_occurrence
+                                                .insert(v, EquationComponentType::Integer(o + c));
+                                        }
+                                        if let EquationComponentType::Decimal(o) = x {
+                                            variable_occurrence.insert(
+                                                v,
+                                                EquationComponentType::Decimal(o + c as f64),
+                                            );
+                                        }
+                                    }
+                                    None => {
+                                        variable_occurrence
+                                            .insert(v, EquationComponentType::Integer(c));
+                                    }
+                                };
+                                return false;
+                            } else if let EquationComponentType::Decimal(c) = **rhs {
+                                // variable * decimal
+                                match variable_occurrence.remove(&v) {
+                                    Some(x) => {
+                                        if let EquationComponentType::Integer(o) = x {
+                                            variable_occurrence.insert(
+                                                v,
+                                                EquationComponentType::Decimal(o as f64 + c),
+                                            );
+                                        }
+                                        if let EquationComponentType::Decimal(o) = x {
+                                            variable_occurrence
+                                                .insert(v, EquationComponentType::Decimal(o + c));
+                                        }
+                                    }
+                                    None => {
+                                        variable_occurrence
+                                            .insert(v, EquationComponentType::Decimal(c));
+                                    }
+                                };
+                                return false;
+                            }
+                        }
+                    }
+
+                    if let EquationComponentType::VariableNode(v) = node_to_simplify {
+                        match variable_occurrence.remove(&v) {
+                            Some(x) => {
+                                if let EquationComponentType::Integer(o) = x {
+                                    variable_occurrence
+                                        .insert(*v, EquationComponentType::Integer(o + 1));
+                                }
+                                if let EquationComponentType::Decimal(o) = x {
+                                    variable_occurrence
+                                        .insert(*v, EquationComponentType::Decimal(o + 1.0));
+                                }
+                            }
+                            None => {
+                                variable_occurrence.insert(*v, EquationComponentType::Integer(1));
+                            }
+                        };
+                        return false;
+                    }
+                    return true;
+                });
+
+                for (k, v) in variable_occurrence.into_iter() {
+                    variables_nodes.push(EquationComponentType::PowNode {
+                        lhs: Box::new(EquationComponentType::VariableNode(k)),
+                        rhs: Box::new(v),
+                    })
+                }
 
                 // creating new MulNode with all the computed and simplified nodes
                 if variables_nodes.len() == 0 {
