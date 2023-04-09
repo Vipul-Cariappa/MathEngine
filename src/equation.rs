@@ -665,10 +665,20 @@ impl EquationComponentType {
                 let lhs: EquationComponentType = lhs.simplify();
                 let rhs: EquationComponentType = rhs.simplify();
 
-                // TODO: implement the following simplification
                 // ((x ^ y) ^ z) -> x ^ (z * y)
-
-                if let EquationComponentType::Integer(i) = lhs {
+                if let EquationComponentType::PowNode {
+                    lhs: lvalue,
+                    rhs: rvalue,
+                } = lhs
+                {
+                    return EquationComponentType::PowNode {
+                        lhs: lvalue,
+                        rhs: Box::new(EquationComponentType::MulNode {
+                            lhs: rvalue,
+                            rhs: Box::new(rhs),
+                        }),
+                    };
+                } else if let EquationComponentType::Integer(i) = lhs {
                     if let EquationComponentType::Integer(j) = rhs {
                         let result: i64 = math::powi64(i, j);
                         return EquationComponentType::Integer(result);
