@@ -77,6 +77,25 @@ pub fn do_something() {
     println!("\n\n{}", x.pow(&y.pow(&z)));
     println!("\n\n{}", x.pow(&y).pow(&z));
 
+    // *** checking substitution of floats ***
+    let eq: PartEquation = 1 + &x + &y;
+    println!(
+        "\nEq: {}, substituted {} with {} -> {}",
+        eq,
+        'x',
+        2.0,
+        eq.substitutef('x', 2.0)
+    );
+
+    let eq: PartEquation = 2 * x.pow(&y);
+    println!(
+        "\nEq: {}, substituted {} with {} -> {}",
+        eq,
+        'x',
+        2.0,
+        eq.substitutef('x', 2.0)
+    );
+
     // *** check pre_simplification ***
     let eq: PartEquation = 1 + &x;
     println!("\n{} -> {}", eq, eq.simplify());
@@ -106,5 +125,8 @@ pub fn do_something() {
     println!("\n{} -> {}", eq, eq.simplify());
 
     let eq: PartEquation = x.powi64(3) * x.powi64(2) * &x;
+    println!("\n{} -> {}", eq, eq.simplify());
+
+    let eq: PartEquation = x.powi64(3) * &x;
     println!("\n{} -> {}", eq, eq.simplify());
 }
