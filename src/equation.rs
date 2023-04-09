@@ -356,10 +356,25 @@ impl EquationComponentType {
                 });
 
                 for (k, v) in variable_occurrence.into_iter() {
-                    variables_nodes.push(EquationComponentType::MulNode {
-                        lhs: Box::new(EquationComponentType::VariableNode(k)),
-                        rhs: Box::new(v),
-                    })
+                    if let EquationComponentType::Integer(o) = v {
+                        if o != 1 {
+                            variables_nodes.push(EquationComponentType::AddNode {
+                                lhs: Box::new(EquationComponentType::VariableNode(k)),
+                                rhs: Box::new(v),
+                            });
+                        } else {
+                            variables_nodes.push(EquationComponentType::VariableNode(k));
+                        }
+                    } else if let EquationComponentType::Decimal(o) = v {
+                        if o != 1.0 {
+                            variables_nodes.push(EquationComponentType::AddNode {
+                                lhs: Box::new(EquationComponentType::VariableNode(k)),
+                                rhs: Box::new(v),
+                            });
+                        } else {
+                            variables_nodes.push(EquationComponentType::VariableNode(k));
+                        }
+                    }
                 }
 
                 // ? Should the following simplification be implemented:
@@ -472,7 +487,7 @@ impl EquationComponentType {
 
                 // collect common terms of Variable MulNodes and create unique PowNodes
                 // example: (x ^ 2) * (x ^ 5) -> (x ^ 7)
-                
+
                 let mut variable_occurrence: HashMap<char, EquationComponentType> = HashMap::new();
 
                 variables_nodes.retain(|node_to_simplify| {
@@ -546,10 +561,25 @@ impl EquationComponentType {
                 });
 
                 for (k, v) in variable_occurrence.into_iter() {
-                    variables_nodes.push(EquationComponentType::PowNode {
-                        lhs: Box::new(EquationComponentType::VariableNode(k)),
-                        rhs: Box::new(v),
-                    })
+                    if let EquationComponentType::Integer(o) = v {
+                        if o != 1 {
+                            variables_nodes.push(EquationComponentType::PowNode {
+                                lhs: Box::new(EquationComponentType::VariableNode(k)),
+                                rhs: Box::new(v),
+                            });
+                        } else {
+                            variables_nodes.push(EquationComponentType::VariableNode(k));
+                        }
+                    } else if let EquationComponentType::Decimal(o) = v {
+                        if o != 1.0 {
+                            variables_nodes.push(EquationComponentType::PowNode {
+                                lhs: Box::new(EquationComponentType::VariableNode(k)),
+                                rhs: Box::new(v),
+                            });
+                        } else {
+                            variables_nodes.push(EquationComponentType::VariableNode(k));
+                        }
+                    }
                 }
 
                 // creating new MulNode with all the computed and simplified nodes
@@ -689,7 +719,7 @@ impl EquationComponentType {
         }
     }
 
-    // TODO: implement substitutef and substitute for PartEquation
+    // TODO: implement substitute for PartEquation
 
     fn substitutei(&self, variable: char, value: i64) -> EquationComponentType {
         match self {
@@ -705,24 +735,60 @@ impl EquationComponentType {
                 lhs: Box::new(lhs.substitutei(variable, value)),
                 rhs: Box::new(rhs.substitutei(variable, value)),
             },
-            EquationComponentType::SubNode { lhs, rhs } => EquationComponentType::AddNode {
+            EquationComponentType::SubNode { lhs, rhs } => EquationComponentType::SubNode {
                 lhs: Box::new(lhs.substitutei(variable, value)),
                 rhs: Box::new(rhs.substitutei(variable, value)),
             },
-            EquationComponentType::MulNode { lhs, rhs } => EquationComponentType::AddNode {
+            EquationComponentType::MulNode { lhs, rhs } => EquationComponentType::MulNode {
                 lhs: Box::new(lhs.substitutei(variable, value)),
                 rhs: Box::new(rhs.substitutei(variable, value)),
             },
-            EquationComponentType::DivNode { lhs, rhs } => EquationComponentType::AddNode {
+            EquationComponentType::DivNode { lhs, rhs } => EquationComponentType::DivNode {
                 lhs: Box::new(lhs.substitutei(variable, value)),
                 rhs: Box::new(rhs.substitutei(variable, value)),
             },
-            EquationComponentType::PowNode { lhs, rhs } => EquationComponentType::AddNode {
+            EquationComponentType::PowNode { lhs, rhs } => EquationComponentType::PowNode {
                 lhs: Box::new(lhs.substitutei(variable, value)),
                 rhs: Box::new(rhs.substitutei(variable, value)),
             },
             EquationComponentType::MinusNode(node) => {
                 EquationComponentType::MinusNode(Box::new(node.substitutei(variable, value)))
+            }
+        }
+    }
+
+    fn substitutef(&self, variable: char, value: f64) -> EquationComponentType {
+        match self {
+            EquationComponentType::Integer(i) => EquationComponentType::Integer(*i),
+            EquationComponentType::Decimal(i) => EquationComponentType::Decimal(*i),
+            EquationComponentType::VariableNode(i) => {
+                if *i == variable {
+                    return EquationComponentType::Decimal(value);
+                }
+                return EquationComponentType::VariableNode(*i);
+            }
+            EquationComponentType::AddNode { lhs, rhs } => EquationComponentType::AddNode {
+                lhs: Box::new(lhs.substitutef(variable, value)),
+                rhs: Box::new(rhs.substitutef(variable, value)),
+            },
+            EquationComponentType::SubNode { lhs, rhs } => EquationComponentType::SubNode {
+                lhs: Box::new(lhs.substitutef(variable, value)),
+                rhs: Box::new(rhs.substitutef(variable, value)),
+            },
+            EquationComponentType::MulNode { lhs, rhs } => EquationComponentType::MulNode {
+                lhs: Box::new(lhs.substitutef(variable, value)),
+                rhs: Box::new(rhs.substitutef(variable, value)),
+            },
+            EquationComponentType::DivNode { lhs, rhs } => EquationComponentType::DivNode {
+                lhs: Box::new(lhs.substitutef(variable, value)),
+                rhs: Box::new(rhs.substitutef(variable, value)),
+            },
+            EquationComponentType::PowNode { lhs, rhs } => EquationComponentType::PowNode {
+                lhs: Box::new(lhs.substitutef(variable, value)),
+                rhs: Box::new(rhs.substitutef(variable, value)),
+            },
+            EquationComponentType::MinusNode(node) => {
+                EquationComponentType::MinusNode(Box::new(node.substitutef(variable, value)))
             }
         }
     }
@@ -838,6 +904,12 @@ impl PartEquation {
     pub fn substitutei(&self, variable: char, value: i64) -> PartEquation {
         PartEquation {
             eq: self.eq.substitutei(variable, value).simplify(),
+        }
+    }
+
+    pub fn substitutef(&self, variable: char, value: f64) -> PartEquation {
+        PartEquation {
+            eq: self.eq.substitutef(variable, value), /*.simplify()*/
         }
     }
 
