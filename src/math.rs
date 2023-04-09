@@ -1,3 +1,10 @@
+#[derive(Debug)]
+pub enum MathError {
+    ZeroDivisionError,
+    EquationMismatchError,
+    InternalError,
+}
+
 pub fn powi128(base: i128, exponent: i128) -> i128 {
     let mut result: i128 = 1;
     for _i in 1..=exponent {
@@ -17,7 +24,7 @@ pub fn powi64(base: i64, exponent: i64) -> i64 {
 }
 
 pub fn powf64(base: f64, exponent: f64) -> f64 {
-    internal_powf64(base, exponent, 0.0000001f64)
+    internal_powf64(base, exponent, 0.00000000000000001f64)
 }
 
 fn internal_powf64(base: f64, power: f64, precision: f64) -> f64 {

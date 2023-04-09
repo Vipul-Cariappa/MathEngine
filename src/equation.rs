@@ -4,6 +4,8 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::ops;
 
+use crate::math::MathError;
+
 use super::math;
 
 #[derive(Clone)]
@@ -24,12 +26,16 @@ enum EquationComponentType {
         rhs: Box<EquationComponentType>,
     },
     DivNode {
-        lhs: Box<EquationComponentType>,
-        rhs: Box<EquationComponentType>,
+        numerator: Box<EquationComponentType>,
+        denominator: Box<EquationComponentType>,
     },
     PowNode {
-        lhs: Box<EquationComponentType>, // base
-        rhs: Box<EquationComponentType>, // exponent
+        base: Box<EquationComponentType>,
+        exponent: Box<EquationComponentType>,
+    },
+    LogNode {
+        base: Box<EquationComponentType>,
+        argument: Box<EquationComponentType>,
     },
     MinusNode(Box<EquationComponentType>),
 }
@@ -43,8 +49,16 @@ impl Debug for EquationComponentType {
             EquationComponentType::AddNode { lhs, rhs } => write!(f, "({:?} + {:?})", lhs, rhs),
             EquationComponentType::SubNode { lhs, rhs } => write!(f, "({:?} - {:?})", lhs, rhs),
             EquationComponentType::MulNode { lhs, rhs } => write!(f, "({:?} * {:?})", lhs, rhs),
-            EquationComponentType::DivNode { lhs, rhs } => write!(f, "({:?} / {:?})", lhs, rhs),
-            EquationComponentType::PowNode { lhs, rhs } => write!(f, "({:?} ^ {:?})", lhs, rhs),
+            EquationComponentType::DivNode {
+                numerator,
+                denominator,
+            } => write!(f, "({:?} / {:?})", numerator, denominator),
+            EquationComponentType::PowNode { base, exponent } => {
+                write!(f, "({:?} ^ {:?})", base, exponent)
+            }
+            EquationComponentType::LogNode { base, argument } => {
+                write!(f, "(Log_{:?}({:?}))", base, argument)
+            }
             EquationComponentType::MinusNode(value) => write!(f, "-({:?})", value),
         }
     }
@@ -59,15 +73,23 @@ impl Display for EquationComponentType {
             EquationComponentType::AddNode { lhs, rhs } => write!(f, "({} + {})", lhs, rhs),
             EquationComponentType::SubNode { lhs, rhs } => write!(f, "({} - {})", lhs, rhs),
             EquationComponentType::MulNode { lhs, rhs } => write!(f, "({} * {})", lhs, rhs),
-            EquationComponentType::DivNode { lhs, rhs } => write!(f, "({} / {})", lhs, rhs),
-            EquationComponentType::PowNode { lhs, rhs } => write!(f, "({} ^ {})", lhs, rhs),
+            EquationComponentType::DivNode {
+                numerator,
+                denominator,
+            } => write!(f, "({} / {})", numerator, denominator),
+            EquationComponentType::PowNode { base, exponent } => {
+                write!(f, "({} ^ {})", base, exponent)
+            }
+            EquationComponentType::LogNode { base, argument } => {
+                write!(f, "(Log_{:?}({:?}))", base, argument)
+            }
             EquationComponentType::MinusNode(value) => write!(f, "-({})", value),
         }
     }
 }
 
 impl EquationComponentType {
-    fn post_simplify(&self) -> EquationComponentType {
+    fn post_simplify(&self) -> Self {
         match self {
             EquationComponentType::Integer(i) => EquationComponentType::Integer(*i),
             EquationComponentType::Decimal(i) => EquationComponentType::Decimal(*i),
@@ -164,18 +186,25 @@ impl EquationComponentType {
                     }
                 }
             }
-            EquationComponentType::DivNode { lhs, rhs } => EquationComponentType::DivNode {
-                lhs: Box::new(lhs.post_simplify()),
-                rhs: Box::new(rhs.post_simplify()),
+            EquationComponentType::DivNode {
+                numerator,
+                denominator,
+            } => EquationComponentType::DivNode {
+                numerator: Box::new(numerator.post_simplify()),
+                denominator: Box::new(denominator.post_simplify()),
             },
-            EquationComponentType::PowNode { lhs, rhs } => EquationComponentType::PowNode {
-                lhs: Box::new(lhs.post_simplify()),
-                rhs: Box::new(rhs.post_simplify()),
+            EquationComponentType::PowNode { base, exponent } => EquationComponentType::PowNode {
+                base: Box::new(base.post_simplify()),
+                exponent: Box::new(exponent.post_simplify()),
+            },
+            EquationComponentType::LogNode { base, argument } => EquationComponentType::LogNode {
+                base: Box::new(base.post_simplify()),
+                argument: Box::new(argument.post_simplify()),
             },
         }
     }
 
-    fn simplify(&self) -> EquationComponentType {
+    fn simplify(&self) -> Self {
         match self {
             EquationComponentType::Integer(i) => EquationComponentType::Integer(*i),
 
@@ -358,7 +387,7 @@ impl EquationComponentType {
                 for (k, v) in variable_occurrence.into_iter() {
                     if let EquationComponentType::Integer(o) = v {
                         if o != 1 {
-                            variables_nodes.push(EquationComponentType::AddNode {
+                            variables_nodes.push(EquationComponentType::MulNode {
                                 lhs: Box::new(EquationComponentType::VariableNode(k)),
                                 rhs: Box::new(v),
                             });
@@ -367,7 +396,7 @@ impl EquationComponentType {
                         }
                     } else if let EquationComponentType::Decimal(o) = v {
                         if o != 1.0 {
-                            variables_nodes.push(EquationComponentType::AddNode {
+                            variables_nodes.push(EquationComponentType::MulNode {
                                 lhs: Box::new(EquationComponentType::VariableNode(k)),
                                 rhs: Box::new(v),
                             });
@@ -475,8 +504,8 @@ impl EquationComponentType {
                 for (i, k) in variable_occurrence.into_iter() {
                     if k > 1 {
                         variables_nodes.push(EquationComponentType::PowNode {
-                            lhs: Box::new(EquationComponentType::VariableNode(i)),
-                            rhs: Box::new(EquationComponentType::Integer(k)),
+                            base: Box::new(EquationComponentType::VariableNode(i)),
+                            exponent: Box::new(EquationComponentType::Integer(k)),
                         });
                     } else {
                         variables_nodes.push(EquationComponentType::VariableNode(i));
@@ -491,9 +520,9 @@ impl EquationComponentType {
                 let mut variable_occurrence: HashMap<char, EquationComponentType> = HashMap::new();
 
                 variables_nodes.retain(|node_to_simplify| {
-                    if let EquationComponentType::PowNode { lhs, rhs } = node_to_simplify {
-                        if let EquationComponentType::VariableNode(v) = **lhs {
-                            if let EquationComponentType::Integer(c) = **rhs {
+                    if let EquationComponentType::PowNode { base, exponent } = node_to_simplify {
+                        if let EquationComponentType::VariableNode(v) = **base {
+                            if let EquationComponentType::Integer(c) = **exponent {
                                 // variable * integer
                                 match variable_occurrence.remove(&v) {
                                     Some(x) => {
@@ -514,7 +543,7 @@ impl EquationComponentType {
                                     }
                                 };
                                 return false;
-                            } else if let EquationComponentType::Decimal(c) = **rhs {
+                            } else if let EquationComponentType::Decimal(c) = **exponent {
                                 // variable * decimal
                                 match variable_occurrence.remove(&v) {
                                     Some(x) => {
@@ -564,8 +593,8 @@ impl EquationComponentType {
                     if let EquationComponentType::Integer(o) = v {
                         if o != 1 {
                             variables_nodes.push(EquationComponentType::PowNode {
-                                lhs: Box::new(EquationComponentType::VariableNode(k)),
-                                rhs: Box::new(v),
+                                base: Box::new(EquationComponentType::VariableNode(k)),
+                                exponent: Box::new(v),
                             });
                         } else {
                             variables_nodes.push(EquationComponentType::VariableNode(k));
@@ -573,8 +602,8 @@ impl EquationComponentType {
                     } else if let EquationComponentType::Decimal(o) = v {
                         if o != 1.0 {
                             variables_nodes.push(EquationComponentType::PowNode {
-                                lhs: Box::new(EquationComponentType::VariableNode(k)),
-                                rhs: Box::new(v),
+                                base: Box::new(EquationComponentType::VariableNode(k)),
+                                exponent: Box::new(v),
                             });
                         } else {
                             variables_nodes.push(EquationComponentType::VariableNode(k));
@@ -623,94 +652,102 @@ impl EquationComponentType {
                 };
             } // End EquationComponentType::MulNod
 
-            EquationComponentType::DivNode { lhs, rhs } => {
-                let lhs: EquationComponentType = lhs.simplify();
-                let rhs: EquationComponentType = rhs.simplify();
+            EquationComponentType::DivNode {
+                numerator,
+                denominator,
+            } => {
+                let numerator: EquationComponentType = numerator.simplify();
+                let denominator: EquationComponentType = denominator.simplify();
 
-                if let EquationComponentType::Integer(i) = lhs {
-                    if let EquationComponentType::Integer(j) = rhs {
-                        let result: i64 = i / j;
-                        return EquationComponentType::Integer(result);
-                    } else if let EquationComponentType::Decimal(j) = rhs {
+                if let EquationComponentType::Integer(i) = numerator {
+                    if let EquationComponentType::Integer(j) = denominator {
+                        let result: f64 = i as f64 / j as f64;
+                        return EquationComponentType::Decimal(result);
+                    } else if let EquationComponentType::Decimal(j) = denominator {
                         let result: f64 = i as f64 / j;
                         return EquationComponentType::Decimal(result);
                     } else {
                         return EquationComponentType::DivNode {
-                            lhs: Box::new(EquationComponentType::Integer(i)),
-                            rhs: Box::new(rhs),
+                            numerator: Box::new(EquationComponentType::Integer(i)),
+                            denominator: Box::new(denominator),
                         };
                     }
-                } else if let EquationComponentType::Decimal(i) = lhs {
-                    if let EquationComponentType::Integer(j) = rhs {
+                } else if let EquationComponentType::Decimal(i) = numerator {
+                    if let EquationComponentType::Integer(j) = denominator {
                         let result: f64 = i / j as f64;
                         return EquationComponentType::Decimal(result);
-                    } else if let EquationComponentType::Decimal(j) = rhs {
+                    } else if let EquationComponentType::Decimal(j) = denominator {
                         let result: f64 = i / j;
                         return EquationComponentType::Decimal(result);
                     } else {
                         return EquationComponentType::DivNode {
-                            lhs: Box::new(EquationComponentType::Decimal(i)),
-                            rhs: Box::new(rhs),
+                            numerator: Box::new(EquationComponentType::Decimal(i)),
+                            denominator: Box::new(denominator),
                         };
                     }
                 } else {
                     return EquationComponentType::DivNode {
-                        lhs: Box::new(lhs),
-                        rhs: Box::new(rhs),
+                        numerator: Box::new(numerator),
+                        denominator: Box::new(denominator),
                     };
                 }
             } // End EquationComponentType::DivNode
 
-            EquationComponentType::PowNode { lhs, rhs } => {
-                let lhs: EquationComponentType = lhs.simplify();
-                let rhs: EquationComponentType = rhs.simplify();
+            EquationComponentType::PowNode { base, exponent } => {
+                let base: EquationComponentType = base.simplify();
+                let exponent: EquationComponentType = exponent.simplify();
 
                 // ((x ^ y) ^ z) -> x ^ (z * y)
                 if let EquationComponentType::PowNode {
-                    lhs: lvalue,
-                    rhs: rvalue,
-                } = lhs
+                    base: lvalue,
+                    exponent: rvalue,
+                } = base
                 {
                     return EquationComponentType::PowNode {
-                        lhs: lvalue,
-                        rhs: Box::new(EquationComponentType::MulNode {
+                        base: lvalue,
+                        exponent: Box::new(EquationComponentType::MulNode {
                             lhs: rvalue,
-                            rhs: Box::new(rhs),
+                            rhs: Box::new(exponent),
                         }),
                     };
-                } else if let EquationComponentType::Integer(i) = lhs {
-                    if let EquationComponentType::Integer(j) = rhs {
+                } else if let EquationComponentType::Integer(i) = base {
+                    if let EquationComponentType::Integer(j) = exponent {
                         let result: i64 = math::powi64(i, j);
                         return EquationComponentType::Integer(result);
-                    } else if let EquationComponentType::Decimal(j) = rhs {
+                    } else if let EquationComponentType::Decimal(j) = exponent {
                         let result: f64 = math::powf64(i as f64, j);
                         return EquationComponentType::Decimal(result);
                     } else {
                         return EquationComponentType::PowNode {
-                            lhs: Box::new(EquationComponentType::Integer(i)),
-                            rhs: Box::new(rhs),
+                            base: Box::new(EquationComponentType::Integer(i)),
+                            exponent: Box::new(exponent),
                         };
                     }
-                } else if let EquationComponentType::Decimal(i) = lhs {
-                    if let EquationComponentType::Integer(j) = rhs {
+                } else if let EquationComponentType::Decimal(i) = base {
+                    if let EquationComponentType::Integer(j) = exponent {
                         let result: f64 = math::powf64(i, j as f64);
                         return EquationComponentType::Decimal(result);
-                    } else if let EquationComponentType::Decimal(j) = rhs {
+                    } else if let EquationComponentType::Decimal(j) = exponent {
                         let result: f64 = math::powf64(i, j);
                         return EquationComponentType::Decimal(result);
                     } else {
                         return EquationComponentType::PowNode {
-                            lhs: Box::new(EquationComponentType::Decimal(i)),
-                            rhs: Box::new(rhs),
+                            base: Box::new(EquationComponentType::Decimal(i)),
+                            exponent: Box::new(exponent),
                         };
                     }
                 } else {
                     return EquationComponentType::PowNode {
-                        lhs: Box::new(lhs),
-                        rhs: Box::new(rhs),
+                        base: Box::new(base),
+                        exponent: Box::new(exponent),
                     };
                 }
             } // End EquationComponentType::PowNode
+
+            EquationComponentType::LogNode { base, argument } => EquationComponentType::LogNode {
+                base: Box::new(base.simplify()),
+                argument: Box::new(argument.simplify()),
+            }, // End EquationComponentType::LogNode
 
             EquationComponentType::MinusNode(value) => {
                 let value: EquationComponentType = value.simplify();
@@ -731,7 +768,7 @@ impl EquationComponentType {
 
     // TODO: implement substitute for PartEquation
 
-    fn substitutei(&self, variable: char, value: i64) -> EquationComponentType {
+    fn substitutei(&self, variable: char, value: i64) -> Self {
         match self {
             EquationComponentType::Integer(i) => EquationComponentType::Integer(*i),
             EquationComponentType::Decimal(i) => EquationComponentType::Decimal(*i),
@@ -753,13 +790,20 @@ impl EquationComponentType {
                 lhs: Box::new(lhs.substitutei(variable, value)),
                 rhs: Box::new(rhs.substitutei(variable, value)),
             },
-            EquationComponentType::DivNode { lhs, rhs } => EquationComponentType::DivNode {
-                lhs: Box::new(lhs.substitutei(variable, value)),
-                rhs: Box::new(rhs.substitutei(variable, value)),
+            EquationComponentType::DivNode {
+                numerator,
+                denominator,
+            } => EquationComponentType::DivNode {
+                numerator: Box::new(numerator.substitutei(variable, value)),
+                denominator: Box::new(denominator.substitutei(variable, value)),
             },
-            EquationComponentType::PowNode { lhs, rhs } => EquationComponentType::PowNode {
-                lhs: Box::new(lhs.substitutei(variable, value)),
-                rhs: Box::new(rhs.substitutei(variable, value)),
+            EquationComponentType::PowNode { base, exponent } => EquationComponentType::PowNode {
+                base: Box::new(base.substitutei(variable, value)),
+                exponent: Box::new(exponent.substitutei(variable, value)),
+            },
+            EquationComponentType::LogNode { base, argument } => EquationComponentType::LogNode {
+                base: Box::new(base.substitutei(variable, value)),
+                argument: Box::new(argument.substitutei(variable, value)),
             },
             EquationComponentType::MinusNode(node) => {
                 EquationComponentType::MinusNode(Box::new(node.substitutei(variable, value)))
@@ -767,7 +811,7 @@ impl EquationComponentType {
         }
     }
 
-    fn substitutef(&self, variable: char, value: f64) -> EquationComponentType {
+    fn substitutef(&self, variable: char, value: f64) -> Self {
         match self {
             EquationComponentType::Integer(i) => EquationComponentType::Integer(*i),
             EquationComponentType::Decimal(i) => EquationComponentType::Decimal(*i),
@@ -789,13 +833,20 @@ impl EquationComponentType {
                 lhs: Box::new(lhs.substitutef(variable, value)),
                 rhs: Box::new(rhs.substitutef(variable, value)),
             },
-            EquationComponentType::DivNode { lhs, rhs } => EquationComponentType::DivNode {
-                lhs: Box::new(lhs.substitutef(variable, value)),
-                rhs: Box::new(rhs.substitutef(variable, value)),
+            EquationComponentType::DivNode {
+                numerator,
+                denominator,
+            } => EquationComponentType::DivNode {
+                numerator: Box::new(numerator.substitutef(variable, value)),
+                denominator: Box::new(denominator.substitutef(variable, value)),
             },
-            EquationComponentType::PowNode { lhs, rhs } => EquationComponentType::PowNode {
-                lhs: Box::new(lhs.substitutef(variable, value)),
-                rhs: Box::new(rhs.substitutef(variable, value)),
+            EquationComponentType::PowNode { base, exponent } => EquationComponentType::PowNode {
+                base: Box::new(base.substitutef(variable, value)),
+                exponent: Box::new(exponent.substitutef(variable, value)),
+            },
+            EquationComponentType::LogNode { base, argument } => EquationComponentType::LogNode {
+                base: Box::new(base.substitutef(variable, value)),
+                argument: Box::new(argument.substitutef(variable, value)),
             },
             EquationComponentType::MinusNode(node) => {
                 EquationComponentType::MinusNode(Box::new(node.substitutef(variable, value)))
@@ -950,8 +1001,8 @@ impl PartEquation {
     pub fn pow(&self, exponent: &PartEquation) -> Self {
         PartEquation {
             eq: EquationComponentType::PowNode {
-                lhs: Box::new(self.eq.clone()),
-                rhs: Box::new(exponent.eq.clone()),
+                base: Box::new(self.eq.clone()),
+                exponent: Box::new(exponent.eq.clone()),
             },
         }
     }
@@ -959,8 +1010,8 @@ impl PartEquation {
     pub fn powi(&self, exponent: i64) -> Self {
         PartEquation {
             eq: EquationComponentType::PowNode {
-                lhs: Box::new(self.eq.clone()),
-                rhs: Box::new(EquationComponentType::Integer(exponent)),
+                base: Box::new(self.eq.clone()),
+                exponent: Box::new(EquationComponentType::Integer(exponent)),
             },
         }
     }
@@ -968,8 +1019,8 @@ impl PartEquation {
     pub fn powf(&self, exponent: f64) -> Self {
         PartEquation {
             eq: EquationComponentType::PowNode {
-                lhs: Box::new(self.eq.clone()),
-                rhs: Box::new(EquationComponentType::Decimal(exponent)),
+                base: Box::new(self.eq.clone()),
+                exponent: Box::new(EquationComponentType::Decimal(exponent)),
             },
         }
     }
@@ -978,6 +1029,549 @@ impl PartEquation {
 impl Display for PartEquation {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.eq)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Equation {
+    lhs: EquationComponentType,
+    rhs: EquationComponentType,
+}
+
+enum AntiOperations {
+    AddLHS,
+    AddRHS,
+    SubLHS,
+    SubRHS,
+    MulNumerator,
+    MulDenominator,
+    DivLHS,
+    DivRHS,
+    PowLHS,
+    PowRHS,
+    LogLHS,
+    LogRHS,
+    Minus,
+}
+
+impl Equation {
+    pub fn new(lhs: &PartEquation, rhs: &PartEquation) -> Self {
+        Equation {
+            lhs: lhs.eq.clone(),
+            rhs: rhs.eq.clone(),
+        }
+    }
+
+    pub fn solve(&self, variable: char) -> Result<PartEquation, MathError> {
+        let eq: EquationComponentType =
+            Self::make_rhs_zero(&self.lhs.simplify(), &self.rhs.simplify()).simplify();
+
+        if Self::count_occurrences(&eq, variable) > 1 {
+            todo!()
+        } else if Self::count_occurrences(&eq, variable) == 0 {
+            return Err(MathError::EquationMismatchError);
+        }
+
+        match Self::do_inverse(&eq, variable) {
+            Ok(result) => Ok(PartEquation {
+                eq: result.simplify(),
+            }),
+            Err(err) => Err(err),
+        }
+    }
+
+    fn count_occurrences(eq: &EquationComponentType, variable: char) -> i64 {
+        let mut occurrences = 0;
+
+        match eq {
+            EquationComponentType::VariableNode(i) => {
+                if *i == variable {
+                    occurrences += 1;
+                }
+            }
+            EquationComponentType::AddNode { lhs, rhs } => {
+                occurrences += Self::count_occurrences(lhs, variable);
+                occurrences += Self::count_occurrences(rhs, variable);
+            }
+            EquationComponentType::SubNode { lhs, rhs } => {
+                occurrences += Self::count_occurrences(lhs, variable);
+                occurrences += Self::count_occurrences(rhs, variable);
+            }
+            EquationComponentType::MulNode { lhs, rhs } => {
+                occurrences += Self::count_occurrences(lhs, variable);
+                occurrences += Self::count_occurrences(rhs, variable);
+            }
+            EquationComponentType::DivNode {
+                numerator,
+                denominator,
+            } => {
+                occurrences += Self::count_occurrences(numerator, variable);
+                occurrences += Self::count_occurrences(denominator, variable);
+            }
+            EquationComponentType::PowNode { base, exponent } => {
+                occurrences += Self::count_occurrences(base, variable);
+                occurrences += Self::count_occurrences(exponent, variable);
+            }
+            EquationComponentType::LogNode { base, argument } => {
+                occurrences += Self::count_occurrences(base, variable);
+                occurrences += Self::count_occurrences(argument, variable);
+            }
+            EquationComponentType::MinusNode(value) => {
+                occurrences += Self::count_occurrences(value, variable);
+            }
+            _ => {}
+        }
+
+        return occurrences;
+    }
+
+    fn make_anti_operations_list(
+        eq: &EquationComponentType,
+        variable: char,
+        list: &mut Vec<AntiOperations>,
+    ) -> bool {
+        match eq {
+            EquationComponentType::VariableNode(i) => {
+                if *i == variable {
+                    true
+                } else {
+                    false
+                }
+            }
+            EquationComponentType::AddNode { lhs, rhs } => {
+                if Self::make_anti_operations_list(lhs, variable, list) {
+                    list.push(AntiOperations::SubRHS);
+                    true
+                } else if Self::make_anti_operations_list(rhs, variable, list) {
+                    list.push(AntiOperations::SubLHS);
+                    true
+                } else {
+                    false
+                }
+            }
+            EquationComponentType::SubNode { lhs, rhs } => {
+                if Self::make_anti_operations_list(lhs, variable, list) {
+                    list.push(AntiOperations::AddRHS);
+                    true
+                } else if Self::make_anti_operations_list(rhs, variable, list) {
+                    list.push(AntiOperations::AddLHS);
+                    true
+                } else {
+                    false
+                }
+            }
+            EquationComponentType::MulNode { lhs, rhs } => {
+                if Self::make_anti_operations_list(lhs, variable, list) {
+                    list.push(AntiOperations::DivRHS);
+                    true
+                } else if Self::make_anti_operations_list(rhs, variable, list) {
+                    list.push(AntiOperations::DivLHS);
+                    true
+                } else {
+                    false
+                }
+            }
+            EquationComponentType::DivNode {
+                numerator,
+                denominator,
+            } => {
+                if Self::make_anti_operations_list(numerator, variable, list) {
+                    list.push(AntiOperations::MulDenominator);
+                    true
+                } else if Self::make_anti_operations_list(denominator, variable, list) {
+                    list.push(AntiOperations::MulNumerator);
+                    true
+                } else {
+                    false
+                }
+            }
+            EquationComponentType::PowNode { base, exponent } => {
+                if Self::make_anti_operations_list(base, variable, list) {
+                    list.push(AntiOperations::PowRHS);
+                    true
+                } else if Self::make_anti_operations_list(exponent, variable, list) {
+                    list.push(AntiOperations::LogLHS);
+                    true
+                } else {
+                    false
+                }
+            }
+            EquationComponentType::LogNode { base, argument } => {
+                if Self::make_anti_operations_list(base, variable, list) {
+                    list.push(AntiOperations::LogRHS);
+                    true
+                } else if Self::make_anti_operations_list(argument, variable, list) {
+                    list.push(AntiOperations::PowLHS);
+                    true
+                } else {
+                    false
+                }
+            }
+            EquationComponentType::MinusNode(value) => {
+                if Self::make_anti_operations_list(value, variable, list) {
+                    list.push(AntiOperations::Minus);
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+
+    fn do_inverse(
+        eq: &EquationComponentType,
+        variable: char,
+    ) -> Result<EquationComponentType, MathError> {
+        // Step 1: make a list of anti operations to perform
+        let mut anti_ops: Vec<AntiOperations> = Vec::new();
+        Self::make_anti_operations_list(&eq, variable, &mut anti_ops);
+
+        let mut result: EquationComponentType = EquationComponentType::Integer(0);
+        let mut eq: EquationComponentType = eq.clone();
+
+        // Step 2: perform the anti operations`
+        for _ in 0..anti_ops.len() {
+            match anti_ops.pop().unwrap() {
+                AntiOperations::AddLHS => {
+                    if let EquationComponentType::SubNode { lhs, rhs } = eq {
+                        eq = *rhs;
+                        result = EquationComponentType::AddNode {
+                            lhs: Box::new(result),
+                            rhs: Box::new(EquationComponentType::MinusNode(lhs)),
+                        }
+                    } else {
+                        return Err(MathError::InternalError);
+                    }
+                }
+                AntiOperations::AddRHS => {
+                    if let EquationComponentType::SubNode { lhs, rhs } = eq {
+                        eq = *lhs;
+                        result = EquationComponentType::AddNode {
+                            lhs: Box::new(result),
+                            rhs: rhs,
+                        }
+                    } else {
+                        return Err(MathError::InternalError);
+                    }
+                }
+                AntiOperations::SubLHS => {
+                    if let EquationComponentType::AddNode { lhs, rhs } = eq {
+                        eq = *rhs;
+                        result = EquationComponentType::SubNode {
+                            lhs: Box::new(result),
+                            rhs: lhs,
+                        }
+                    } else {
+                        return Err(MathError::InternalError);
+                    }
+                }
+                AntiOperations::SubRHS => {
+                    if let EquationComponentType::AddNode { lhs, rhs } = eq {
+                        eq = *lhs;
+                        result = EquationComponentType::SubNode {
+                            lhs: Box::new(result),
+                            rhs: rhs,
+                        }
+                    } else {
+                        return Err(MathError::InternalError);
+                    }
+                }
+                AntiOperations::MulNumerator => {
+                    if let EquationComponentType::DivNode {
+                        numerator,
+                        denominator,
+                    } = eq
+                    {
+                        eq = *denominator;
+                        result = EquationComponentType::DivNode {
+                            numerator: numerator,
+                            denominator: Box::new(result),
+                        }
+                    } else {
+                        return Err(MathError::InternalError);
+                    }
+                }
+                AntiOperations::MulDenominator => {
+                    if let EquationComponentType::DivNode {
+                        numerator,
+                        denominator,
+                    } = eq
+                    {
+                        eq = *numerator;
+                        result = EquationComponentType::MulNode {
+                            lhs: Box::new(result),
+                            rhs: denominator,
+                        }
+                    } else {
+                        return Err(MathError::InternalError);
+                    }
+                }
+                AntiOperations::DivLHS => {
+                    if let EquationComponentType::MulNode { lhs, rhs } = eq {
+                        eq = *rhs;
+                        result = EquationComponentType::DivNode {
+                            numerator: Box::new(result),
+                            denominator: lhs,
+                        }
+                    } else {
+                        return Err(MathError::InternalError);
+                    }
+                }
+                AntiOperations::DivRHS => {
+                    if let EquationComponentType::MulNode { lhs, rhs } = eq {
+                        eq = *lhs;
+                        result = EquationComponentType::DivNode {
+                            numerator: Box::new(result),
+                            denominator: rhs,
+                        }
+                    } else {
+                        return Err(MathError::InternalError);
+                    }
+                }
+                AntiOperations::PowLHS => {
+                    if let EquationComponentType::LogNode { base, argument } = eq {
+                        eq = *argument;
+                        result = EquationComponentType::PowNode {
+                            base: base,
+                            exponent: Box::new(result),
+                        }
+                    } else {
+                        return Err(MathError::InternalError);
+                    }
+                }
+                AntiOperations::PowRHS => {
+                    if let EquationComponentType::PowNode { base, exponent } = eq {
+                        eq = *base;
+                        result = EquationComponentType::PowNode {
+                            base: Box::new(result),
+                            exponent: Box::new(EquationComponentType::DivNode {
+                                numerator: Box::new(EquationComponentType::Integer(1)),
+                                denominator: exponent,
+                            }),
+                        }
+                    } else {
+                        return Err(MathError::InternalError);
+                    }
+                }
+                AntiOperations::LogLHS => {
+                    if let EquationComponentType::PowNode { base, exponent } = eq {
+                        eq = *exponent;
+                        result = EquationComponentType::LogNode {
+                            base: base,
+                            argument: Box::new(result),
+                        }
+                    } else {
+                        return Err(MathError::InternalError);
+                    }
+                }
+                AntiOperations::LogRHS => {
+                    if let EquationComponentType::PowNode { base, exponent } = eq {
+                        eq = *base;
+                        result = EquationComponentType::PowNode {
+                            base: exponent,
+                            exponent: Box::new(EquationComponentType::DivNode {
+                                numerator: Box::new(EquationComponentType::Integer(1)),
+                                denominator: Box::new(result),
+                            }),
+                        }
+                    } else {
+                        return Err(MathError::InternalError);
+                    }
+                }
+                AntiOperations::Minus => {
+                    if let EquationComponentType::MinusNode(v) = eq {
+                        eq = *v;
+                        result = EquationComponentType::MinusNode(Box::new(result));
+                    } else {
+                        return Err(MathError::InternalError);
+                    }
+                }
+            }
+        }
+
+        // Step 3: return the simplified answer
+        return Ok(result.simplify());
+    }
+
+    fn make_rhs_zero(
+        lhs: &EquationComponentType,
+        rhs: &EquationComponentType,
+    ) -> EquationComponentType {
+        match rhs {
+            EquationComponentType::Integer(i) => EquationComponentType::AddNode {
+                lhs: Box::new(lhs.clone()),
+                rhs: Box::new(EquationComponentType::MinusNode(Box::new(
+                    EquationComponentType::Integer(*i),
+                ))),
+            },
+            EquationComponentType::Decimal(i) => EquationComponentType::AddNode {
+                lhs: Box::new(lhs.clone()),
+                rhs: Box::new(EquationComponentType::MinusNode(Box::new(
+                    EquationComponentType::Decimal(*i),
+                ))),
+            },
+            EquationComponentType::VariableNode(i) => EquationComponentType::AddNode {
+                lhs: Box::new(lhs.clone()),
+                rhs: Box::new(EquationComponentType::MinusNode(Box::new(
+                    EquationComponentType::VariableNode(*i),
+                ))),
+            },
+            EquationComponentType::AddNode {
+                lhs: lvalue,
+                rhs: rvalue,
+            } => Self::make_rhs_zero(
+                &EquationComponentType::AddNode {
+                    lhs: Box::new(lhs.clone()),
+                    rhs: Box::new(EquationComponentType::MinusNode(rvalue.clone())),
+                },
+                &lvalue,
+            ),
+            EquationComponentType::SubNode {
+                lhs: lvalue,
+                rhs: rvalue,
+            } => Self::make_rhs_zero(
+                &EquationComponentType::AddNode {
+                    lhs: Box::new(lhs.clone()),
+                    rhs: rvalue.clone(),
+                },
+                &lvalue,
+            ),
+            EquationComponentType::MulNode {
+                lhs: lvalue,
+                rhs: rvalue,
+            } => {
+                if let EquationComponentType::Integer(o) = **lvalue {
+                    if o == 0 {
+                        return lhs.clone();
+                    }
+                } else if let EquationComponentType::Decimal(o) = **lvalue {
+                    if o == 0.0 {
+                        return lhs.clone();
+                    }
+                }
+                if let EquationComponentType::Integer(o) = **rvalue {
+                    if o != 0 {
+                        Self::make_rhs_zero(
+                            &EquationComponentType::DivNode {
+                                numerator: Box::new(lhs.clone()),
+                                denominator: rvalue.clone(),
+                            },
+                            &lvalue,
+                        )
+                    } else {
+                        lhs.clone()
+                    }
+                } else if let EquationComponentType::Decimal(o) = **rvalue {
+                    if o != 0.0 {
+                        Self::make_rhs_zero(
+                            &EquationComponentType::DivNode {
+                                numerator: Box::new(lhs.clone()),
+                                denominator: rvalue.clone(),
+                            },
+                            &lvalue,
+                        )
+                    } else {
+                        lhs.clone()
+                    }
+                } else {
+                    Self::make_rhs_zero(
+                        &EquationComponentType::DivNode {
+                            numerator: Box::new(lhs.clone()),
+                            denominator: rvalue.clone(),
+                        },
+                        &lvalue,
+                    )
+                }
+            }
+            EquationComponentType::DivNode {
+                numerator: lvalue,
+                denominator: rvalue,
+            } => Self::make_rhs_zero(
+                &EquationComponentType::MulNode {
+                    lhs: Box::new(lhs.clone()),
+                    rhs: rvalue.clone(),
+                },
+                &lvalue,
+            ),
+            EquationComponentType::PowNode {
+                base: lvalue,
+                exponent: rvalue,
+            } => {
+                if let EquationComponentType::Integer(o) = **rvalue {
+                    if o != 0 {
+                        Self::make_rhs_zero(
+                            &EquationComponentType::PowNode {
+                                base: Box::new(lhs.clone()),
+                                exponent: Box::new(EquationComponentType::DivNode {
+                                    numerator: Box::new(EquationComponentType::Integer(1)),
+                                    denominator: rvalue.clone(),
+                                }),
+                            },
+                            &lvalue,
+                        )
+                    } else {
+                        EquationComponentType::AddNode {
+                            lhs: Box::new(lhs.clone()),
+                            rhs: Box::new(EquationComponentType::MinusNode(Box::new(
+                                EquationComponentType::Integer(1),
+                            ))),
+                        }
+                    }
+                } else if let EquationComponentType::Decimal(o) = **rvalue {
+                    if o != 0.0 {
+                        Self::make_rhs_zero(
+                            &EquationComponentType::PowNode {
+                                base: Box::new(lhs.clone()),
+                                exponent: Box::new(EquationComponentType::DivNode {
+                                    numerator: Box::new(EquationComponentType::Integer(1)),
+                                    denominator: rvalue.clone(),
+                                }),
+                            },
+                            &lvalue,
+                        )
+                    } else {
+                        EquationComponentType::AddNode {
+                            lhs: Box::new(lhs.clone()),
+                            rhs: Box::new(EquationComponentType::MinusNode(Box::new(
+                                EquationComponentType::Integer(1),
+                            ))),
+                        }
+                    }
+                } else {
+                    Self::make_rhs_zero(
+                        &EquationComponentType::PowNode {
+                            base: Box::new(lhs.clone()),
+                            exponent: Box::new(EquationComponentType::DivNode {
+                                numerator: Box::new(EquationComponentType::Integer(1)),
+                                denominator: rvalue.clone(),
+                            }),
+                        },
+                        &lvalue,
+                    )
+                }
+            }
+            EquationComponentType::LogNode {
+                base: lvalue,
+                argument: rvalue,
+            } => Self::make_rhs_zero(
+                &EquationComponentType::PowNode {
+                    base: lvalue.clone(),
+                    exponent: Box::new(lhs.clone()),
+                },
+                rvalue,
+            ),
+            EquationComponentType::MinusNode(value) => EquationComponentType::AddNode {
+                lhs: Box::new(lhs.clone()),
+                rhs: value.clone(),
+            },
+        }
+    }
+}
+
+impl Display for Equation {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} = {}", self.lhs, self.rhs)
     }
 }
 
@@ -1455,8 +2049,8 @@ impl ops::Div<PartEquation> for PartEquation {
     fn div(self, rhs: Self) -> Self::Output {
         PartEquation {
             eq: EquationComponentType::DivNode {
-                lhs: Box::new(self.eq),
-                rhs: Box::new(rhs.eq),
+                numerator: Box::new(self.eq),
+                denominator: Box::new(rhs.eq),
             },
         }
     }
@@ -1468,8 +2062,8 @@ impl<'a> ops::Div<&'a PartEquation> for &'a PartEquation {
     fn div(self, rhs: Self) -> Self::Output {
         PartEquation {
             eq: EquationComponentType::DivNode {
-                lhs: Box::new(self.eq.clone()),
-                rhs: Box::new(rhs.eq.clone()),
+                numerator: Box::new(self.eq.clone()),
+                denominator: Box::new(rhs.eq.clone()),
             },
         }
     }
@@ -1481,8 +2075,8 @@ impl<'a> ops::Div<PartEquation> for &'a PartEquation {
     fn div(self, rhs: PartEquation) -> Self::Output {
         PartEquation {
             eq: EquationComponentType::DivNode {
-                lhs: Box::new(self.eq.clone()),
-                rhs: Box::new(rhs.eq),
+                numerator: Box::new(self.eq.clone()),
+                denominator: Box::new(rhs.eq),
             },
         }
     }
@@ -1494,8 +2088,8 @@ impl<'a> ops::Div<&'a PartEquation> for PartEquation {
     fn div(self, rhs: &'a PartEquation) -> Self::Output {
         PartEquation {
             eq: EquationComponentType::DivNode {
-                lhs: Box::new(self.eq),
-                rhs: Box::new(rhs.eq.clone()),
+                numerator: Box::new(self.eq),
+                denominator: Box::new(rhs.eq.clone()),
             },
         }
     }
@@ -1507,8 +2101,8 @@ impl ops::Div<i64> for PartEquation {
     fn div(self, rhs: i64) -> Self::Output {
         PartEquation {
             eq: EquationComponentType::DivNode {
-                lhs: Box::new(self.eq),
-                rhs: Box::new(EquationComponentType::Integer(rhs)),
+                numerator: Box::new(self.eq),
+                denominator: Box::new(EquationComponentType::Integer(rhs)),
             },
         }
     }
@@ -1520,8 +2114,8 @@ impl ops::Div<f64> for PartEquation {
     fn div(self, rhs: f64) -> Self::Output {
         PartEquation {
             eq: EquationComponentType::DivNode {
-                lhs: Box::new(self.eq),
-                rhs: Box::new(EquationComponentType::Decimal(rhs)),
+                numerator: Box::new(self.eq),
+                denominator: Box::new(EquationComponentType::Decimal(rhs)),
             },
         }
     }
@@ -1533,8 +2127,8 @@ impl ops::Div<PartEquation> for i64 {
     fn div(self, rhs: PartEquation) -> Self::Output {
         PartEquation {
             eq: EquationComponentType::DivNode {
-                lhs: Box::new(EquationComponentType::Integer(self)),
-                rhs: Box::new(rhs.eq),
+                numerator: Box::new(EquationComponentType::Integer(self)),
+                denominator: Box::new(rhs.eq),
             },
         }
     }
@@ -1546,8 +2140,8 @@ impl ops::Div<PartEquation> for f64 {
     fn div(self, rhs: PartEquation) -> Self::Output {
         PartEquation {
             eq: EquationComponentType::DivNode {
-                lhs: Box::new(EquationComponentType::Decimal(self)),
-                rhs: Box::new(rhs.eq),
+                numerator: Box::new(EquationComponentType::Decimal(self)),
+                denominator: Box::new(rhs.eq),
             },
         }
     }
@@ -1559,8 +2153,8 @@ impl<'a> ops::Div<i64> for &'a PartEquation {
     fn div(self, rhs: i64) -> Self::Output {
         PartEquation {
             eq: EquationComponentType::DivNode {
-                lhs: Box::new(self.eq.clone()),
-                rhs: Box::new(EquationComponentType::Integer(rhs)),
+                numerator: Box::new(self.eq.clone()),
+                denominator: Box::new(EquationComponentType::Integer(rhs)),
             },
         }
     }
@@ -1572,8 +2166,8 @@ impl<'a> ops::Div<f64> for &'a PartEquation {
     fn div(self, rhs: f64) -> Self::Output {
         PartEquation {
             eq: EquationComponentType::DivNode {
-                lhs: Box::new(self.eq.clone()),
-                rhs: Box::new(EquationComponentType::Decimal(rhs)),
+                numerator: Box::new(self.eq.clone()),
+                denominator: Box::new(EquationComponentType::Decimal(rhs)),
             },
         }
     }
@@ -1585,8 +2179,8 @@ impl<'a> ops::Div<&'a PartEquation> for i64 {
     fn div(self, rhs: &PartEquation) -> Self::Output {
         PartEquation {
             eq: EquationComponentType::DivNode {
-                lhs: Box::new(EquationComponentType::Integer(self)),
-                rhs: Box::new(rhs.eq.clone()),
+                numerator: Box::new(EquationComponentType::Integer(self)),
+                denominator: Box::new(rhs.eq.clone()),
             },
         }
     }
@@ -1598,8 +2192,8 @@ impl<'a> ops::Div<&'a PartEquation> for f64 {
     fn div(self, rhs: &PartEquation) -> Self::Output {
         PartEquation {
             eq: EquationComponentType::DivNode {
-                lhs: Box::new(EquationComponentType::Decimal(self)),
-                rhs: Box::new(rhs.eq.clone()),
+                numerator: Box::new(EquationComponentType::Decimal(self)),
+                denominator: Box::new(rhs.eq.clone()),
             },
         }
     }

@@ -1,4 +1,5 @@
 use math_engine;
+use math_engine::equation::Equation;
 use math_engine::equation::PartEquation;
 use std::process::ExitCode;
 
@@ -132,4 +133,41 @@ pub fn do_something() {
 
     let eq: PartEquation = x.powi(3).powi(7);
     println!("\n{} -> {}", eq, eq.simplify());
+
+    // *** Equation Solver ***
+    let eq_full: Equation = Equation::new(&(&x + 1), &PartEquation::newi(-4));
+    println!("\n{} -> x = {}", eq_full, eq_full.solve('x').unwrap());
+
+    let eq_full: Equation = Equation::new(&PartEquation::newi(-4), &(&x + 1));
+    println!("\n{} -> x = {}", eq_full, eq_full.solve('x').unwrap());
+
+    let eq_full: Equation = Equation::new(&PartEquation::newi(4), &(&x.pow(&y)));
+    println!("\n{} -> x = {}", eq_full, eq_full.solve('x').unwrap());
+
+    let eq_full: Equation = Equation::new(&(5 * &x + 1), &PartEquation::newi(3));
+    println!("\n{} -> x = {}", eq_full, eq_full.solve('x').unwrap());
+
+    let eq_full: Equation = Equation::new(&(5 * &x / 4 + 1), &PartEquation::newi(-3));
+    println!("\n{} -> x = {}", eq_full, eq_full.solve('x').unwrap());
+
+    let eq_full: Equation = Equation::new(&(5 * -&x / 4 + 1), &PartEquation::newi(-3));
+    println!("\n{} -> x = {}", eq_full, eq_full.solve('x').unwrap());
+
+    let eq_full: Equation = Equation::new(&(5 * -&x / 4 - 12), &PartEquation::newi(13));
+    println!("\n{} -> x = {}", eq_full, eq_full.solve('x').unwrap());
+
+    let eq_full: Equation = Equation::new(&(&x.powi(-3)), &PartEquation::newi(90));
+    println!("\n{} -> x = {}", eq_full, eq_full.solve('x').unwrap());
+
+    let eq_full: Equation = Equation::new(&(5 * &x.powi(3) / 4 - 12), &PartEquation::newi(90));
+    println!("\n{} -> x = {}", eq_full, eq_full.solve('x').unwrap());
+
+    let eq_full: Equation = Equation::new(&(5 * two.pow(&x) / 4 - 12), &PartEquation::newi(90));
+    println!("\n{} -> x = {}", eq_full, eq_full.solve('x').unwrap());
+
+    // let eq_full: Equation = Equation::new(&PartEquation::newi(4), &(&x.pow(&y) * 0));
+    // println!("\n{} -> {}", eq_full, eq_full.solve('x').unwrap());
+
+    // let eq_full: Equation = Equation::new(&PartEquation::newi(4).powi(0), &(&x.powi(0)));
+    // println!("\n{} -> {}", eq_full, eq_full.solve('x').unwrap());
 }
