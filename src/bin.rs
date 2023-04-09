@@ -124,12 +124,12 @@ pub fn do_something() {
     let eq: PartEquation = &x + &x + &x;
     println!("\n{} -> {}", eq, eq.simplify());
 
-    let eq: PartEquation = x.powi64(3) * x.powi64(2) * &x;
+    let eq: PartEquation = x.powi(3) * x.powi(2) * &x;
     println!("\n{} -> {}", eq, eq.simplify());
 
-    let eq: PartEquation = x.powi64(3) * &x;
+    let eq: PartEquation = x.powi(3) * &x;
     println!("\n{} -> {}", eq, eq.simplify());
 
-    let eq: PartEquation = x.powi64(3).powi64(7);
+    let eq: PartEquation = x.powi(3).powi(7);
     println!("\n{} -> {}", eq, eq.simplify());
 }

@@ -956,38 +956,11 @@ impl PartEquation {
         }
     }
 
-    pub fn powi32(&self, exponent: i32) -> Self {
-        PartEquation {
-            eq: EquationComponentType::PowNode {
-                lhs: Box::new(self.eq.clone()),
-                rhs: Box::new(EquationComponentType::Integer(exponent as i64)),
-            },
-        }
-    }
-
-    pub fn powi64(&self, exponent: i64) -> Self {
-        PartEquation {
-            eq: EquationComponentType::PowNode {
-                lhs: Box::new(self.eq.clone()),
-                rhs: Box::new(EquationComponentType::Integer(exponent as i64)),
-            },
-        }
-    }
-
     pub fn powi(&self, exponent: i64) -> Self {
         PartEquation {
             eq: EquationComponentType::PowNode {
                 lhs: Box::new(self.eq.clone()),
                 rhs: Box::new(EquationComponentType::Integer(exponent)),
-            },
-        }
-    }
-
-    pub fn powf32(&self, exponent: f32) -> Self {
-        PartEquation {
-            eq: EquationComponentType::PowNode {
-                lhs: Box::new(self.eq.clone()),
-                rhs: Box::new(EquationComponentType::Decimal(exponent as f64)),
             },
         }
     }
