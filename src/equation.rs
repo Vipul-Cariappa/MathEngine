@@ -407,7 +407,7 @@ impl EquationComponentType {
                 }
 
                 // ? Should the following simplification be implemented:
-                // ? 5 + (x * y) -> (5 * x) + (5 * y)
+                // ? 5 * (x + y) -> (5 * x) + (5 * y)
 
                 // creating new AddNode with all the computed and simplified nodes
                 if variables_nodes.len() == 0 {
@@ -1063,8 +1063,13 @@ impl Equation {
     }
 
     pub fn solve(&self, variable: char) -> Result<PartEquation, MathError> {
-        let eq: EquationComponentType =
-            Self::make_rhs_zero(&self.lhs.simplify(), &self.rhs.simplify()).simplify();
+        let eq: EquationComponentType = EquationComponentType::AddNode {
+            lhs: Box::new(self.lhs.simplify()),
+            rhs: Box::new(EquationComponentType::MinusNode(Box::new(
+                self.rhs.simplify(),
+            ))),
+        }
+        .simplify();
 
         if Self::count_occurrences(&eq, variable) > 1 {
             todo!()
@@ -1392,180 +1397,6 @@ impl Equation {
 
         // Step 3: return the simplified answer
         return Ok(result.simplify());
-    }
-
-    fn make_rhs_zero(
-        lhs: &EquationComponentType,
-        rhs: &EquationComponentType,
-    ) -> EquationComponentType {
-        match rhs {
-            EquationComponentType::Integer(i) => EquationComponentType::AddNode {
-                lhs: Box::new(lhs.clone()),
-                rhs: Box::new(EquationComponentType::MinusNode(Box::new(
-                    EquationComponentType::Integer(*i),
-                ))),
-            },
-            EquationComponentType::Decimal(i) => EquationComponentType::AddNode {
-                lhs: Box::new(lhs.clone()),
-                rhs: Box::new(EquationComponentType::MinusNode(Box::new(
-                    EquationComponentType::Decimal(*i),
-                ))),
-            },
-            EquationComponentType::VariableNode(i) => EquationComponentType::AddNode {
-                lhs: Box::new(lhs.clone()),
-                rhs: Box::new(EquationComponentType::MinusNode(Box::new(
-                    EquationComponentType::VariableNode(*i),
-                ))),
-            },
-            EquationComponentType::AddNode {
-                lhs: lvalue,
-                rhs: rvalue,
-            } => Self::make_rhs_zero(
-                &EquationComponentType::AddNode {
-                    lhs: Box::new(lhs.clone()),
-                    rhs: Box::new(EquationComponentType::MinusNode(rvalue.clone())),
-                },
-                &lvalue,
-            ),
-            EquationComponentType::SubNode {
-                lhs: lvalue,
-                rhs: rvalue,
-            } => Self::make_rhs_zero(
-                &EquationComponentType::AddNode {
-                    lhs: Box::new(lhs.clone()),
-                    rhs: rvalue.clone(),
-                },
-                &lvalue,
-            ),
-            EquationComponentType::MulNode {
-                lhs: lvalue,
-                rhs: rvalue,
-            } => {
-                if let EquationComponentType::Integer(o) = **lvalue {
-                    if o == 0 {
-                        return lhs.clone();
-                    }
-                } else if let EquationComponentType::Decimal(o) = **lvalue {
-                    if o == 0.0 {
-                        return lhs.clone();
-                    }
-                }
-                if let EquationComponentType::Integer(o) = **rvalue {
-                    if o != 0 {
-                        Self::make_rhs_zero(
-                            &EquationComponentType::DivNode {
-                                numerator: Box::new(lhs.clone()),
-                                denominator: rvalue.clone(),
-                            },
-                            &lvalue,
-                        )
-                    } else {
-                        lhs.clone()
-                    }
-                } else if let EquationComponentType::Decimal(o) = **rvalue {
-                    if o != 0.0 {
-                        Self::make_rhs_zero(
-                            &EquationComponentType::DivNode {
-                                numerator: Box::new(lhs.clone()),
-                                denominator: rvalue.clone(),
-                            },
-                            &lvalue,
-                        )
-                    } else {
-                        lhs.clone()
-                    }
-                } else {
-                    Self::make_rhs_zero(
-                        &EquationComponentType::DivNode {
-                            numerator: Box::new(lhs.clone()),
-                            denominator: rvalue.clone(),
-                        },
-                        &lvalue,
-                    )
-                }
-            }
-            EquationComponentType::DivNode {
-                numerator: lvalue,
-                denominator: rvalue,
-            } => Self::make_rhs_zero(
-                &EquationComponentType::MulNode {
-                    lhs: Box::new(lhs.clone()),
-                    rhs: rvalue.clone(),
-                },
-                &lvalue,
-            ),
-            EquationComponentType::PowNode {
-                base: lvalue,
-                exponent: rvalue,
-            } => {
-                if let EquationComponentType::Integer(o) = **rvalue {
-                    if o != 0 {
-                        Self::make_rhs_zero(
-                            &EquationComponentType::PowNode {
-                                base: Box::new(lhs.clone()),
-                                exponent: Box::new(EquationComponentType::DivNode {
-                                    numerator: Box::new(EquationComponentType::Integer(1)),
-                                    denominator: rvalue.clone(),
-                                }),
-                            },
-                            &lvalue,
-                        )
-                    } else {
-                        EquationComponentType::AddNode {
-                            lhs: Box::new(lhs.clone()),
-                            rhs: Box::new(EquationComponentType::MinusNode(Box::new(
-                                EquationComponentType::Integer(1),
-                            ))),
-                        }
-                    }
-                } else if let EquationComponentType::Decimal(o) = **rvalue {
-                    if o != 0.0 {
-                        Self::make_rhs_zero(
-                            &EquationComponentType::PowNode {
-                                base: Box::new(lhs.clone()),
-                                exponent: Box::new(EquationComponentType::DivNode {
-                                    numerator: Box::new(EquationComponentType::Integer(1)),
-                                    denominator: rvalue.clone(),
-                                }),
-                            },
-                            &lvalue,
-                        )
-                    } else {
-                        EquationComponentType::AddNode {
-                            lhs: Box::new(lhs.clone()),
-                            rhs: Box::new(EquationComponentType::MinusNode(Box::new(
-                                EquationComponentType::Integer(1),
-                            ))),
-                        }
-                    }
-                } else {
-                    Self::make_rhs_zero(
-                        &EquationComponentType::PowNode {
-                            base: Box::new(lhs.clone()),
-                            exponent: Box::new(EquationComponentType::DivNode {
-                                numerator: Box::new(EquationComponentType::Integer(1)),
-                                denominator: rvalue.clone(),
-                            }),
-                        },
-                        &lvalue,
-                    )
-                }
-            }
-            EquationComponentType::LogNode {
-                base: lvalue,
-                argument: rvalue,
-            } => Self::make_rhs_zero(
-                &EquationComponentType::PowNode {
-                    base: lvalue.clone(),
-                    exponent: Box::new(lhs.clone()),
-                },
-                rvalue,
-            ),
-            EquationComponentType::MinusNode(value) => EquationComponentType::AddNode {
-                lhs: Box::new(lhs.clone()),
-                rhs: value.clone(),
-            },
-        }
     }
 }
 
