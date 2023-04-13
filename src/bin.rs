@@ -165,6 +165,10 @@ pub fn do_something() {
     let eq_full: Equation = Equation::new(&(5 * two.pow(&x) / 4 - 12), &PartEquation::newi(90));
     println!("\n{} -> x = {}", eq_full, eq_full.solve('x').unwrap());
 
+    let eq_full: Equation = Equation::new(&(&x + 5), &(2 * &x));
+    println!("\n{}", eq_full);
+    println!("\n{} -> x = {}", eq_full, eq_full.solve('x').unwrap());
+
     // let eq_full: Equation = Equation::new(&PartEquation::newi(4), &(&x.pow(&y) * 0));
     // println!("\n{} -> {}", eq_full, eq_full.solve('x').unwrap());
 

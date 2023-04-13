@@ -752,15 +752,34 @@ impl EquationComponentType {
             EquationComponentType::MinusNode(value) => {
                 let value: EquationComponentType = value.simplify();
 
-                if let EquationComponentType::Integer(i) = value {
-                    return EquationComponentType::Integer(-i);
-                } else if let EquationComponentType::Decimal(i) = value {
-                    return EquationComponentType::Decimal(-i);
-                } else if let EquationComponentType::MinusNode(i) = value {
-                    // -(-x) -> x
-                    return *i;
-                } else {
-                    return EquationComponentType::MinusNode(Box::new(value));
+                match value {
+                    EquationComponentType::Integer(i) => EquationComponentType::Integer(-i),
+                    EquationComponentType::Decimal(i) => EquationComponentType::Decimal(-i),
+                    EquationComponentType::AddNode { lhs, rhs } => EquationComponentType::AddNode {
+                        lhs: Box::new(EquationComponentType::MinusNode(lhs)),
+                        rhs: Box::new(EquationComponentType::MinusNode(rhs)),
+                    }
+                    .simplify(),
+                    EquationComponentType::SubNode { lhs, rhs } => EquationComponentType::SubNode {
+                        lhs: Box::new(EquationComponentType::MinusNode(lhs)),
+                        rhs: Box::new(EquationComponentType::MinusNode(rhs)),
+                    }
+                    .simplify(),
+                    EquationComponentType::MulNode { lhs, rhs } => EquationComponentType::MulNode {
+                        lhs: Box::new(EquationComponentType::MinusNode(lhs)),
+                        rhs: rhs,
+                    }
+                    .simplify(),
+                    EquationComponentType::DivNode {
+                        numerator,
+                        denominator,
+                    } => EquationComponentType::DivNode {
+                        numerator: Box::new(EquationComponentType::MinusNode(numerator)),
+                        denominator: denominator,
+                    }
+                    .simplify(),
+                    EquationComponentType::MinusNode(i) => *i,
+                    n => EquationComponentType::MinusNode(Box::new(n.simplify())),
                 }
             }
         }
