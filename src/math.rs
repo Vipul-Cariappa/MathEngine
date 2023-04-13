@@ -30,6 +30,10 @@ pub fn powf64(base: f64, exponent: f64) -> f64 {
 fn internal_powf64(base: f64, power: f64, precision: f64) -> f64 {
     let square = |x| x * x;
 
+    if (power == f64::INFINITY) || (base == f64::INFINITY) {
+        return f64::INFINITY;
+    }
+
     if power < 0f64 {
         return 1f64 / internal_powf64(base, -power, precision);
     }
