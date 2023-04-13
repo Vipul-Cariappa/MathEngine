@@ -2037,8 +2037,6 @@ mod tests {
         let x: PartEquation = PartEquation::new('x');
         let eq: Equation = Equation::new(&x, &PartEquation::newi(12));
 
-        println!("Eq 1: {}", eq);
-
         if let EquationComponentType::Integer(i) = eq.solve('x').unwrap().eq {
             assert_eq!(i, 12);
         } else {
@@ -2050,8 +2048,6 @@ mod tests {
     fn test_solving_equation_2() {
         let x: PartEquation = PartEquation::new('x');
         let eq: Equation = Equation::new(&PartEquation::newf(3.14), &x);
-
-        println!("Eq 2: {}", eq);
 
         if let EquationComponentType::Decimal(i) = eq.solve('x').unwrap().eq {
             assert_eq!(i, 3.14);
@@ -2065,8 +2061,6 @@ mod tests {
         let x: PartEquation = PartEquation::new('x');
         let eq: Equation = Equation::new(&PartEquation::newi(3), &(x * 2));
 
-        println!("Eq 3: {}", eq);
-
         if let EquationComponentType::Decimal(i) = eq.solve('x').unwrap().eq {
             assert_eq!(i, 1.5);
         } else {
@@ -2078,8 +2072,6 @@ mod tests {
     fn test_solving_equation_4() {
         let x: PartEquation = PartEquation::new('x');
         let eq: Equation = Equation::new(&PartEquation::newi(3), &(x + 2));
-
-        println!("Eq 4: {}", eq);
 
         if let EquationComponentType::Decimal(i) = eq.solve('x').unwrap().eq {
             assert_eq!(i, 1.0);
@@ -2093,8 +2085,6 @@ mod tests {
         let x: PartEquation = PartEquation::new('x');
         let eq: Equation = Equation::new(&PartEquation::newi(3), &(x / 2));
 
-        println!("Eq 5: {}", eq);
-
         if let EquationComponentType::Integer(i) = eq.solve('x').unwrap().eq {
             assert_eq!(i, 6);
         } else {
@@ -2106,8 +2096,6 @@ mod tests {
     fn test_solving_equation_6() {
         let x: PartEquation = PartEquation::new('x');
         let eq: Equation = Equation::new(&PartEquation::newi(9), &(&x.powi(2)));
-
-        println!("Eq 6: {}", eq);
 
         if let EquationComponentType::Decimal(i) = eq.solve('x').unwrap().eq {
             assert_eq!(i, 3.0);
@@ -2121,8 +2109,6 @@ mod tests {
         // TODO: evaluate log
         let x: PartEquation = PartEquation::new('x');
         let eq: Equation = Equation::new(&PartEquation::newi(8), &(&PartEquation::newi(2).pow(&x)));
-
-        println!("Eq 7: {}", eq);
 
         if let EquationComponentType::LogNode { base, argument } = eq.solve('x').unwrap().eq {
             if let EquationComponentType::Integer(i) = *base {
@@ -2146,8 +2132,6 @@ mod tests {
         let x: PartEquation = PartEquation::new('x');
         let eq: Equation = Equation::new(&(-x), &PartEquation::newi(1));
 
-        println!("Eq 8: {}", eq);
-
         if let EquationComponentType::Decimal(i) = eq.solve('x').unwrap().eq {
             assert_eq!(i, -1.0);
         } else {
@@ -2160,8 +2144,6 @@ mod tests {
         let x: PartEquation = PartEquation::new('x');
         let eq: Equation = Equation::new(&(&x + 5), &(2 * &x));
 
-        println!("Eq 9: {}", eq);
-
         if let EquationComponentType::Decimal(i) = eq.solve('x').unwrap().eq {
             assert_eq!(i, 5.0);
         } else {
@@ -2173,8 +2155,6 @@ mod tests {
     fn test_solving_equation_10() {
         let x: PartEquation = PartEquation::new('x');
         let eq: Equation = Equation::new(&(-&x + 5), &(2 * &x));
-
-        println!("Eq 10: {}", eq);
 
         if let EquationComponentType::Decimal(i) = eq.solve('x').unwrap().eq {
             assert_eq!(i, 5.0 / 3.0);
