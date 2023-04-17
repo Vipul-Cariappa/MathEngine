@@ -9,4 +9,8 @@ edition = "2021"
 name = "math_engine"
 path = "src/lib.rs"
 
+[[bin]]
+name = "main"
+path = "src/main.rs"
+
 [dependencies]
