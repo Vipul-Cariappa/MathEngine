@@ -1,8 +1,9 @@
-use super::lexer::{Lexer, LexerError, Token};
+use super::error::Error;
+use super::lexer::{Lexer, Token};
 use std::fmt;
 use std::fmt::Display;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Nodes {
     IntegerNode(i64),
     DecimalNode(f64),
@@ -28,7 +29,7 @@ pub enum Nodes {
         exponent: Box<Nodes>,
     },
     MinusNode(Box<Nodes>),
-    Equation {
+    EquationNode {
         lhs: Box<Nodes>,
         rhs: Box<Nodes>,
     },
@@ -55,7 +56,7 @@ impl Display for Nodes {
             Nodes::PowNode { base, exponent } => {
                 write!(f, "({} ^ {})", base, exponent)
             }
-            Nodes::Equation { lhs, rhs } => write!(f, "({} = {})", lhs, rhs),
+            Nodes::EquationNode { lhs, rhs } => write!(f, "({} = {})", lhs, rhs),
             Nodes::MinusNode(value) => write!(f, "-({})", value),
             Nodes::SubstituteNode(c, v) => match v {
                 Some(v) => write!(f, "  substitute {} with {}", c, v),
@@ -64,18 +65,6 @@ impl Display for Nodes {
             Nodes::SolutionNode { eq, at } => write!(f, "{} @ {}", eq, at),
         }
     }
-}
-
-impl Nodes {
-    // fn eval(&self) -> ?? {
-
-    // }
-}
-
-#[derive(Debug)]
-pub enum ParserError {
-    ParserError { token: Token, message: String },
-    LexerError(LexerError),
 }
 
 pub struct Parser {
@@ -92,22 +81,16 @@ impl Parser {
     }
 }
 
-impl From<LexerError> for ParserError {
-    fn from(item: LexerError) -> Self {
-        ParserError::LexerError(item)
-    }
-}
-
 impl Parser {
-    pub fn parse(&mut self) -> Result<Nodes, ParserError> {
+    pub fn parse(&mut self) -> Result<Nodes, Error> {
         self.tokenizer.next();
         return self.solution();
     }
 
-    fn solution(&mut self) -> Result<Nodes, ParserError> {
+    fn solution(&mut self) -> Result<Nodes, Error> {
         let eq: Nodes = self.equation()?;
 
-        if let Token::ForToken = self.tokenizer.present() {
+        if let Token::ForToken = self.tokenizer.present()? {
             self.tokenizer.next();
             return Ok(Nodes::SolutionNode {
                 eq: Box::new(eq),
@@ -118,12 +101,12 @@ impl Parser {
         return Ok(eq);
     }
 
-    fn equation(&mut self) -> Result<Nodes, ParserError> {
+    fn equation(&mut self) -> Result<Nodes, Error> {
         let eq: Nodes = self.expression()?;
 
-        if let Token::EqualToken = self.tokenizer.present() {
+        if let Token::EqualToken = self.tokenizer.present()? {
             self.tokenizer.next();
-            return Ok(Nodes::Equation {
+            return Ok(Nodes::EquationNode {
                 lhs: Box::new(eq),
                 rhs: Box::new(self.expression()?),
             });
@@ -132,17 +115,17 @@ impl Parser {
         return Ok(eq);
     }
 
-    fn expression(&mut self) -> Result<Nodes, ParserError> {
+    fn expression(&mut self) -> Result<Nodes, Error> {
         let mut eq: Nodes = self.term()?;
 
         loop {
-            if let Token::PlusToken = self.tokenizer.present() {
+            if let Token::PlusToken = self.tokenizer.present()? {
                 self.tokenizer.next();
                 eq = Nodes::AddNode {
                     lhs: Box::new(eq),
                     rhs: Box::new(self.term()?),
                 };
-            } else if let Token::MinusToken = self.tokenizer.present() {
+            } else if let Token::MinusToken = self.tokenizer.present()? {
                 self.tokenizer.next();
                 eq = Nodes::SubNode {
                     lhs: Box::new(eq),
@@ -156,17 +139,17 @@ impl Parser {
         return Ok(eq);
     }
 
-    fn term(&mut self) -> Result<Nodes, ParserError> {
+    fn term(&mut self) -> Result<Nodes, Error> {
         let mut eq: Nodes = self.exponent()?;
 
         loop {
-            if let Token::MulToken = self.tokenizer.present() {
+            if let Token::MulToken = self.tokenizer.present()? {
                 self.tokenizer.next();
                 eq = Nodes::MulNode {
                     lhs: Box::new(eq),
                     rhs: Box::new(self.exponent()?),
                 };
-            } else if let Token::DivToken = self.tokenizer.present() {
+            } else if let Token::DivToken = self.tokenizer.present()? {
                 self.tokenizer.next();
                 eq = Nodes::DivNode {
                     numerator: Box::new(eq),
@@ -180,11 +163,11 @@ impl Parser {
         return Ok(eq);
     }
 
-    fn exponent(&mut self) -> Result<Nodes, ParserError> {
+    fn exponent(&mut self) -> Result<Nodes, Error> {
         let mut eq: Nodes = self.factor()?;
 
         loop {
-            if let Token::PowToken = self.tokenizer.present() {
+            if let Token::PowToken = self.tokenizer.present()? {
                 self.tokenizer.next();
                 eq = Nodes::PowNode {
                     base: Box::new(eq),
@@ -198,8 +181,8 @@ impl Parser {
         return Ok(eq);
     }
 
-    fn factor(&mut self) -> Result<Nodes, ParserError> {
-        match self.tokenizer.present() {
+    fn factor(&mut self) -> Result<Nodes, Error> {
+        match self.tokenizer.present()? {
             Token::IntegerToken(i) => {
                 self.tokenizer.next();
                 return Ok(Nodes::IntegerNode(i));
@@ -225,7 +208,7 @@ impl Parser {
 
                 let eq: Nodes = self.expression()?;
 
-                match self.tokenizer.present() {
+                match self.tokenizer.present()? {
                     Token::RightParenToken => {
                         self.tokenizer.next();
                         return Ok(eq);
@@ -233,30 +216,28 @@ impl Parser {
 
                     _ => {}
                 }
-                return Err(ParserError::ParserError {
-                    token: self.tokenizer.present(),
-                    message: "Expected ')'".to_string(),
+                return Err(Error::ParserError {
+                    token: self.tokenizer.present()?,
+                    message: "Expected ')'",
                 });
             }
             _ => {}
         }
 
-        return Err(ParserError::ParserError {
-            token: self.tokenizer.present(),
-            message: "Expected variable or integer or decimal token but got some thing else."
-                .to_string(),
+        return Err(Error::ParserError {
+            token: self.tokenizer.present()?,
+            message: "Expected variable or integer or decimal token but got some thing else.",
         });
     }
 
-    fn substitute(&mut self) -> Result<Nodes, ParserError> {
-        let variable: char = match self.tokenizer.present() {
+    fn substitute(&mut self) -> Result<Nodes, Error> {
+        let variable: char = match self.tokenizer.present()? {
             Token::VariableToken(i) => i,
             n => {
-                return Err(ParserError::ParserError {
+                return Err(Error::ParserError {
                     token: n,
                     message:
-                        "Expected variable token after @ to solve for, but found something else"
-                            .to_string(),
+                        "Expected variable token after @ to solve for, but found something else",
                 });
             }
         };
@@ -267,10 +248,9 @@ impl Parser {
 
                 if let Token::CommaToken = x {
                 } else {
-                    return Err(ParserError::ParserError {
+                    return Err(Error::ParserError {
                         token: x,
-                        message: "Expected end of line or comma, but found something else"
-                            .to_string(),
+                        message: "Expected end of line or comma, but found something else",
                     });
                 }
             }
@@ -291,19 +271,17 @@ impl Parser {
                 } else if let Token::DecimalToken(i) = x {
                     Nodes::DecimalNode(i)
                 } else {
-                    return Err(ParserError::ParserError {
+                    return Err(Error::ParserError {
                         token: x,
                         message:
-                            "Expected variable token after @ to solve for, but found something else"
-                                .to_string(),
+                            "Expected variable token after @ to solve for, but found something else",
                     });
                 }
             }
             None => {
-                return Err(ParserError::ParserError {
+                return Err(Error::ParserError {
                     token: Token::NoneToken,
-                    message: "Expected variable token after @ to solve for, but found nothing"
-                        .to_string(),
+                    message: "Expected variable token after @ to solve for, but found nothing",
                 });
             }
         };

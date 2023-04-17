@@ -1001,7 +1001,8 @@ impl Equation {
         .simplify();
 
         if Self::count_occurrences(&eq, variable) > 1 {
-            todo!()
+            // TODO: Implement numeric approximation
+            return Err(MathError::NotYetImplemented);
         } else if Self::count_occurrences(&eq, variable) == 0 {
             return Err(MathError::EquationMismatchError);
         }

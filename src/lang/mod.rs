@@ -1,2 +1,6 @@
-pub mod lexer;
-pub mod parser;
+mod error;
+mod interpreter;
+mod lexer;
+mod parser;
+
+pub use interpreter::interpret;
