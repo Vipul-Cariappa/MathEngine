@@ -1,3 +1,5 @@
+use super::error::Error;
+
 #[derive(Debug, Clone, Copy)]
 pub enum Token {
     NoneToken,
@@ -14,12 +16,6 @@ pub enum Token {
     IntegerToken(i64),
     DecimalToken(f64),
     VariableToken(char),
-}
-
-#[derive(Debug)]
-pub struct LexerError {
-    pub position: usize,
-    pub message: String, // position where error occurred and error message
 }
 
 struct Statement {
@@ -45,14 +41,6 @@ impl Iterator for Statement {
 }
 
 impl Statement {
-    // fn get_char(&self) -> char {
-    //     self.string.chars().nth(self.position - 1).unwrap()
-    // }
-
-    // fn get_position(&self) -> usize {
-    //     self.position - 1
-    // }
-
     fn present(&self) -> Option<(usize, char)> {
         match self.string.chars().nth(self.position - 1) {
             Some(x) => Some((self.position, x)),
@@ -64,13 +52,15 @@ impl Statement {
 pub struct Lexer {
     statement: Statement,
     present_token: Token,
+    err: Error,
+    err_occurred: bool,
 }
 
 impl Iterator for Lexer {
-    type Item = Result<Token, LexerError>;
+    type Item = Result<Token, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some((_, c)) = self.statement.present() {
+        while let Some((p, c)) = self.statement.present() {
             if c.is_whitespace() {
                 self.statement.next();
                 continue;
@@ -82,6 +72,8 @@ impl Iterator for Lexer {
                     }
                     Err(x) => {
                         self.present_token = Token::NoneToken;
+                        self.err_occurred = true;
+                        self.err = x.clone();
                         return Some(Err(x));
                     }
                 }
@@ -129,6 +121,19 @@ impl Iterator for Lexer {
                 self.present_token = Token::CommaToken;
                 self.statement.next();
                 return Some(Ok(self.present_token));
+            } else {
+                self.err_occurred = true;
+                self.err = Error::LexerError {
+                    position: p,
+                    statement: self.statement.string.clone(),
+                    message: "Got unexpected character",
+                };
+
+                return Some(Err(Error::LexerError {
+                    position: p,
+                    statement: self.statement.string.clone(),
+                    message: "Got unexpected character",
+                }));
             }
         }
 
@@ -145,17 +150,26 @@ impl Lexer {
                 position: 0,
             },
             present_token: Token::NoneToken,
+            err: Error::LexerError {
+                position: 0,
+                statement: String::new(),
+                message: "",
+            },
+            err_occurred: false,
         };
         r.statement.next();
 
         return r;
     }
 
-    pub fn present(&self) -> Token {
-        return self.present_token;
+    pub fn present(&self) -> Result<Token, Error> {
+        if self.err_occurred {
+            return Err(self.err.clone());
+        }
+        return Ok(self.present_token);
     }
 
-    fn generate_number(&mut self) -> Result<Token, LexerError> {
+    fn generate_number(&mut self) -> Result<Token, Error> {
         let mut num_string: String = String::new();
         let mut decimal: bool = false;
 
@@ -165,9 +179,10 @@ impl Lexer {
                 self.statement.next();
             } else if c == '.' {
                 if decimal == true {
-                    return Err(LexerError {
+                    return Err(Error::LexerError {
                         position: p,
-                        message: "Found two decimal points in single number".to_string(),
+                        statement: self.statement.string.clone(),
+                        message: "Found two decimal points in single number",
                     });
                 }
                 decimal = true;
@@ -183,19 +198,4 @@ impl Lexer {
         }
         return Ok(Token::IntegerToken(num_string.parse().unwrap()));
     }
-
-    // fn generate_variable(&mut self) -> Result<Token, LexerError> {
-    //     let mut result_variable: String = String::new();
-    //     result_variable.push(self.statement.get_char());
-
-    //     while let Some((_, c)) = self.statement.next() {
-    //         if c.is_alphabetic() {
-    //             result_variable.push(c);
-    //         } else {
-    //             break;
-    //         }
-    //     }
-
-    //     return Ok(Token::VariableToken(result_variable));
-    // }
 }

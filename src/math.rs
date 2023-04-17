@@ -1,8 +1,9 @@
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum MathError {
     ZeroDivisionError,
     EquationMismatchError,
     InternalError,
+    NotYetImplemented,
 }
 
 pub fn powi128(base: i128, exponent: i128) -> i128 {
