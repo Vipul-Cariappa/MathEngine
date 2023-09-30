@@ -14,6 +14,8 @@ pub enum Number {
 
 impl Number {
     pub fn pow(&self, exponent: &Number) -> Number {
+        // TODO: rational ^ integer -> rational, presently it returns float
+        
         match self {
             Number::Integer(b) => match exponent {
                 Number::Integer(e) => Number::pow_integer(b, e),

@@ -94,6 +94,12 @@ impl EquationComponentType {
             EquationComponentType::VariableNode(i) => EquationComponentType::VariableNode(*i),
 
             EquationComponentType::AddNode { lhs: _, rhs: _ } => {
+                // TODO: implement the following simplification `log(x) + log(x) = log(2x)`
+
+                // TODO: implement the following simplification `x^n + x^n = 2*x^n`
+                //  where n can a function
+                //  similarly f + f = 2*f for any function
+
                 // extracting simplified child nodes
                 let mut variables: Vec<char> = Vec::new();
                 let mut constants: Vec<Number> = Vec::new();
@@ -137,7 +143,6 @@ impl EquationComponentType {
                 // collect common terms of Variable MulNodes and create unique MulNodes
                 // example: (3 * x) + x -> (4 * x)
                 // example: (3 * x) + (x * 5) -> (8 * x)
-
                 let mut variable_occurrence: HashMap<char, EquationComponentType> = HashMap::new();
 
                 variables_nodes.retain(|node_to_simplify| {
@@ -282,6 +287,8 @@ impl EquationComponentType {
             } // End EquationComponentType::AddNode
 
             EquationComponentType::SubNode { lhs, rhs } => {
+                // TODO: implement the following simplifications `log(x) - log(y) = log(x/y)`
+
                 let lhs: EquationComponentType = lhs.simplify();
                 let rhs: EquationComponentType = rhs.simplify();
 
@@ -293,6 +300,9 @@ impl EquationComponentType {
             } // End EquationComponentType::SubNode
 
             EquationComponentType::MulNode { lhs: _, rhs: _ } => {
+                // TODO: implement the following simplifications
+                // x * (y * z) = x * y + x * z
+
                 // extracting simplified child nodes
                 let mut variables: Vec<char> = Vec::new();
                 let mut constants: Vec<Number> = Vec::new();
@@ -303,6 +313,11 @@ impl EquationComponentType {
                 // calculating the constant's value
                 let mut constant = Number::from(1);
                 constants.iter().for_each(|x| constant = &constant * x);
+
+                // return 0, if constant is 0
+                if constant == Number::from(0) {
+                    return EquationComponentType::ConstantNode(Number::from(0));
+                }
 
                 // no constant required if product is 1
                 let constant_is_one: bool = constant == Number::from(1);
@@ -337,7 +352,6 @@ impl EquationComponentType {
 
                 // collect common terms of Variable MulNodes and create unique PowNodes
                 // example: (x ^ 2) * (x ^ 5) -> (x ^ 7)
-
                 let mut variable_occurrence: HashMap<char, EquationComponentType> = HashMap::new();
 
                 variables_nodes.retain(|node_to_simplify| {
@@ -442,20 +456,16 @@ impl EquationComponentType {
                 numerator,
                 denominator,
             } => {
+                // TODO: implement the following simplifications `2 * x / x = 2`
+
+                // TODO: implement the following simplifications `x^3 / x^2 = x`
+
+                // TODO: implement the following simplifications `x / (y / z) = (x * z) / y`
+
                 let numerator: EquationComponentType = numerator.simplify();
                 let denominator: EquationComponentType = denominator.simplify();
 
                 if let EquationComponentType::ConstantNode(i) = numerator {
-                    if let EquationComponentType::ConstantNode(j) = denominator {
-                        let result = i / j;
-                        return EquationComponentType::ConstantNode(result);
-                    } else {
-                        return EquationComponentType::DivNode {
-                            numerator: Box::new(EquationComponentType::ConstantNode(i)),
-                            denominator: Box::new(denominator),
-                        };
-                    }
-                } else if let EquationComponentType::ConstantNode(i) = numerator {
                     if let EquationComponentType::ConstantNode(j) = denominator {
                         let result = i / j;
                         return EquationComponentType::ConstantNode(result);
@@ -518,10 +528,17 @@ impl EquationComponentType {
                 }
             } // End EquationComponentType::PowNode
 
-            EquationComponentType::LogNode { base, argument } => EquationComponentType::LogNode {
-                base: Box::new(base.simplify()),
-                argument: Box::new(argument.simplify()),
-            }, // End EquationComponentType::LogNode
+            EquationComponentType::LogNode { base, argument } => {
+                // TODO: implement the following simplification `log_x(x^4) = 4`
+                //  log_base(base ^ n) = n
+
+                // TODO: implement the following simplification `log(x^n) = n*log(x)`
+
+                EquationComponentType::LogNode {
+                    base: Box::new(base.simplify()),
+                    argument: Box::new(argument.simplify()),
+                }
+            } // End EquationComponentType::LogNode
 
             EquationComponentType::MinusNode(value) => {
                 let value: EquationComponentType = value.simplify();
@@ -559,8 +576,6 @@ impl EquationComponentType {
             }
         }
     }
-
-    // TODO: implement substitute for PartEquation
 
     fn substitute(&self, variable: char, value: &EquationComponentType) -> Self {
         match self {
