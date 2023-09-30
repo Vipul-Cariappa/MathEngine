@@ -21,9 +21,9 @@ impl Display for EvalResult {
 
 fn eval(node: Nodes) -> Result<EvalResult, Error> {
     match node {
-        Nodes::IntegerNode(i) => Ok(EvalResult::PartEquation(PartEquation::newi(i))),
-        Nodes::DecimalNode(i) => Ok(EvalResult::PartEquation(PartEquation::newf(i))),
-        Nodes::VariableNode(i) => Ok(EvalResult::PartEquation(PartEquation::new(i))),
+        Nodes::IntegerNode(i) => Ok(EvalResult::PartEquation(PartEquation::from(i))),
+        Nodes::DecimalNode(i) => Ok(EvalResult::PartEquation(PartEquation::from(i))),
+        Nodes::VariableNode(i) => Ok(EvalResult::PartEquation(PartEquation::from(i))),
         Nodes::AddNode { lhs, rhs } => {
             let lhs: PartEquation = {
                 match eval(*lhs.clone())? {
@@ -206,10 +206,10 @@ fn eval(node: Nodes) -> Result<EvalResult, Error> {
                     Some(v) => match eq {
                         EvalResult::PartEquation(e) => match *v {
                             Nodes::IntegerNode(i) => {
-                                Ok(EvalResult::PartEquation(e.substitutei(variable, i)))
+                                Ok(EvalResult::PartEquation(e.substitute(variable, &PartEquation::from(i))))
                             }
                             Nodes::DecimalNode(i) => {
-                                Ok(EvalResult::PartEquation(e.substitutef(variable, i)))
+                                Ok(EvalResult::PartEquation(e.substitute(variable, &PartEquation::from(i))))
                             }
                             _ => Err(Error::EvalError {
                                 node: *v,
@@ -226,7 +226,7 @@ fn eval(node: Nodes) -> Result<EvalResult, Error> {
                     None => match eq {
                         EvalResult::Equation(e) => Ok(EvalResult::PartEquation(e.solve(variable)?)),
                         EvalResult::PartEquation(e) => Ok(EvalResult::PartEquation(
-                            Equation::new(&e, &PartEquation::newi(0)).solve(variable)?,
+                            Equation::new(&e, &PartEquation::from(0)).solve(variable)?,
                         )),
                     },
                 }

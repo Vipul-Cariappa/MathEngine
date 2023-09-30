@@ -1,5 +1,6 @@
 pub mod equation;
 pub mod math;
+pub mod number;
 
 pub fn get_version() -> &'static str {
     "0.0.1"
