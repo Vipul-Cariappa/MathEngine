@@ -88,7 +88,7 @@ impl Parser {
         if let Token::NoneToken = self.tokenizer.present()? {
             ast
         } else {
-            Err(Error::ParserError { token: self.tokenizer.present()?, message: "Expected end of line, but got a tokeng" })
+            Err(Error::ParserError { token: self.tokenizer.present()?, message: "Expected end of line, but got a token" })
         }
     }
 
