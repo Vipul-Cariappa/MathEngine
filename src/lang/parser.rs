@@ -84,7 +84,12 @@ impl Parser {
 impl Parser {
     pub fn parse(&mut self) -> Result<Nodes, Error> {
         self.tokenizer.next();
-        return self.solution();
+        let ast =  self.solution();
+        if let Token::NoneToken = self.tokenizer.present()? {
+            ast
+        } else {
+            Err(Error::ParserError { token: self.tokenizer.present()?, message: "Expected end of line, but got a tokeng" })
+        }
     }
 
     fn solution(&mut self) -> Result<Nodes, Error> {
