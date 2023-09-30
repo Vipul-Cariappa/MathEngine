@@ -1,0 +1,13 @@
+name: Create GitHub Issues from ToDo comments
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+        runs-on: "ubuntu-latest"
+        steps:
+            - uses: "actions/checkout@v3"
+            - name: "TODO to Issue"
+              uses: "alstr/todo-to-issue-action@v4"
