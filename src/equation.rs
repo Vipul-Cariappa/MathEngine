@@ -7,7 +7,7 @@ use std::ops;
 use super::number::Number;
 use crate::math::MathError;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 enum EquationComponentType {
     ConstantNode(Number),
     VariableNode(char),
@@ -484,6 +484,8 @@ impl EquationComponentType {
             } // End EquationComponentType::DivNode
 
             EquationComponentType::PowNode { base, exponent } => {
+                // TODO: implement the following simplification `x^1 = x`
+
                 let base: EquationComponentType = base.simplify();
                 let exponent: EquationComponentType = exponent.simplify();
 
@@ -574,6 +576,153 @@ impl EquationComponentType {
                     n => EquationComponentType::MinusNode(Box::new(n.simplify())),
                 }
             }
+        }
+    }
+
+    fn order(&self) -> Self {
+        let sort = |terms: &mut Vec<EquationComponentType>, weights: &mut Vec<Number>| {
+            for i in 0..terms.len() {
+                let mut highest = i;
+                for j in i + 1..terms.len() {
+                    if weights[highest] < weights[j] {
+                        highest = j;
+                    }
+                }
+                if i != highest {
+                    weights.swap(i, highest);
+                    terms.swap(i, highest);
+                }
+            }
+        };
+        match self {
+            EquationComponentType::ConstantNode(i) => {
+                EquationComponentType::ConstantNode(i.clone())
+            }
+            EquationComponentType::VariableNode(i) => EquationComponentType::VariableNode(*i),
+            EquationComponentType::AddNode { lhs, rhs } => {
+                let mut terms: Vec<EquationComponentType> = Vec::new();
+                lhs.separate_terms(&mut terms);
+                rhs.separate_terms(&mut terms);
+
+                let mut weights: Vec<Number> = Vec::new();
+                for i in 0..terms.len() {
+                    weights.push(terms[i].calculate_weight());
+                }
+                sort(&mut terms, &mut weights);
+                EquationComponentType::construct_from_terms(terms)
+            }
+            EquationComponentType::MulNode { lhs, rhs } => {
+                let mut terms: Vec<EquationComponentType> = Vec::new();
+                lhs.separate_products(&mut terms);
+                rhs.separate_products(&mut terms);
+
+                let mut weights: Vec<Number> = Vec::new();
+                for i in 0..terms.len() {
+                    weights.push(terms[i].calculate_weight());
+                }
+                sort(&mut terms, &mut weights);
+                EquationComponentType::construct_from_products(terms)
+            }
+            EquationComponentType::SubNode { lhs, rhs } => EquationComponentType::SubNode {
+                // ???: This not should not exist after the simplify step
+                lhs: Box::new(lhs.order()),
+                rhs: Box::new(rhs.order()),
+            },
+            EquationComponentType::DivNode {
+                numerator,
+                denominator,
+            } => EquationComponentType::DivNode {
+                numerator: Box::new(numerator.order()),
+                denominator: Box::new(denominator.order()),
+            },
+            EquationComponentType::PowNode { base, exponent } => EquationComponentType::PowNode {
+                base: Box::new(base.order()),
+                exponent: Box::new(exponent.order()),
+            },
+            EquationComponentType::LogNode { base, argument } => EquationComponentType::LogNode {
+                base: Box::new(base.order()),
+                argument: Box::new(argument.order()),
+            },
+            EquationComponentType::MinusNode(i) => {
+                EquationComponentType::MinusNode(Box::new(i.order()))
+            }
+        }
+    }
+
+    fn calculate_weight(&self) -> Number {
+        match self {
+            EquationComponentType::ConstantNode(i) => i.clone(),
+            EquationComponentType::VariableNode(i) => Number::from((*i) as u32),
+            EquationComponentType::AddNode { lhs, rhs } => {
+                lhs.calculate_weight() + rhs.calculate_weight()
+            }
+            EquationComponentType::SubNode { lhs, rhs } => {
+                lhs.calculate_weight() - rhs.calculate_weight()
+            }
+            EquationComponentType::MulNode { lhs, rhs } => {
+                lhs.calculate_weight() * rhs.calculate_weight()
+            }
+            EquationComponentType::DivNode {
+                numerator,
+                denominator,
+            } => numerator.calculate_weight() / denominator.calculate_weight(),
+            EquationComponentType::PowNode { base, exponent } => {
+                base.calculate_weight().pow(&exponent.calculate_weight())
+            }
+            EquationComponentType::LogNode {
+                base: _,
+                argument: _,
+            } => {
+                // TODO: implement
+                todo!();
+            }
+            EquationComponentType::MinusNode(i) => -(i.calculate_weight()),
+        }
+    }
+
+    fn construct_from_terms(mut terms: Vec<EquationComponentType>) -> EquationComponentType {
+        if terms.len() == 0 {
+            EquationComponentType::ConstantNode(Number::from(0))
+        } else if terms.len() == 1 {
+            terms.remove(0)
+        } else {
+            EquationComponentType::AddNode {
+                lhs: Box::new(terms.remove(0)),
+                rhs: Box::new(EquationComponentType::construct_from_terms(terms)),
+            }
+        }
+    }
+
+    fn construct_from_products(mut terms: Vec<EquationComponentType>) -> EquationComponentType {
+        if terms.len() == 0 {
+            EquationComponentType::ConstantNode(Number::from(0))
+        } else if terms.len() == 1 {
+            terms.remove(0)
+        } else {
+            EquationComponentType::MulNode {
+                lhs: Box::new(terms.remove(0)),
+                rhs: Box::new(EquationComponentType::construct_from_products(terms)),
+            }
+        }
+    }
+
+    fn separate_terms(&self, terms: &mut Vec<EquationComponentType>) {
+        match self {
+            EquationComponentType::AddNode { lhs, rhs } => {
+                lhs.separate_terms(terms);
+                rhs.separate_terms(terms);
+            }
+            n => terms.push(n.clone()),
+        };
+    }
+
+    fn separate_products(&self, products: &mut Vec<EquationComponentType>) {
+        match self {
+            EquationComponentType::MulNode { lhs, rhs } => {
+                lhs.separate_products(products);
+                rhs.separate_products(products);
+            }
+            n => products.push(n.clone()),
         }
     }
 
@@ -722,13 +871,13 @@ pub struct PartEquation {
 impl PartEquation {
     pub fn substitute(&self, variable: char, value: &PartEquation) -> PartEquation {
         PartEquation {
-            eq: self.eq.substitute(variable, &value.eq).simplify(),
+            eq: self.eq.substitute(variable, &value.eq).simplify().order(),
         }
     }
 
     fn simplify(&self) -> Self {
         PartEquation {
-            eq: self.eq.simplify(),
+            eq: self.eq.simplify().order(),
         }
     }
 
@@ -738,7 +887,8 @@ impl PartEquation {
                 base: Box::new(self.eq.clone()),
                 exponent: Box::new(exponent.eq.clone()),
             }
-            .simplify(),
+            .simplify()
+            .order(),
         }
     }
 }
@@ -748,6 +898,14 @@ impl Display for PartEquation {
         write!(f, "{}", self.eq)
     }
 }
+
+impl PartialEq for PartEquation {
+    fn eq(&self, other: &Self) -> bool {
+        self.eq.simplify().order() == other.eq.simplify().order()
+    }
+}
+
+impl Eq for PartEquation {}
 
 impl From<char> for PartEquation {
     fn from(value: char) -> Self {
@@ -900,9 +1058,7 @@ impl Equation {
         }
 
         match Self::do_inverse(&eq, variable) {
-            Ok(result) => Ok(PartEquation {
-                eq: result.simplify(),
-            }),
+            Ok(result) => Ok(PartEquation { eq: result }),
             Err(err) => Err(err),
         }
     }
@@ -1223,7 +1379,7 @@ impl Equation {
         }
 
         // Step 3: return the simplified answer
-        return Ok(result.simplify());
+        return Ok(result.simplify().order());
     }
 }
 
@@ -1241,9 +1397,9 @@ impl ops::Add<PartEquation> for PartEquation {
             eq: EquationComponentType::AddNode {
                 lhs: Box::new(self.eq),
                 rhs: Box::new(rhs.eq),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1255,9 +1411,9 @@ impl<'a> ops::Add<&'a PartEquation> for &'a PartEquation {
             eq: EquationComponentType::AddNode {
                 lhs: Box::new(self.eq.clone()),
                 rhs: Box::new(rhs.eq.clone()),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1269,9 +1425,9 @@ impl<'a> ops::Add<PartEquation> for &'a PartEquation {
             eq: EquationComponentType::AddNode {
                 lhs: Box::new(self.eq.clone()),
                 rhs: Box::new(rhs.eq),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1283,9 +1439,9 @@ impl<'a> ops::Add<&'a PartEquation> for PartEquation {
             eq: EquationComponentType::AddNode {
                 lhs: Box::new(self.eq),
                 rhs: Box::new(rhs.eq.clone()),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1297,9 +1453,9 @@ impl ops::Add<i64> for PartEquation {
             eq: EquationComponentType::AddNode {
                 lhs: Box::new(self.eq),
                 rhs: Box::new(EquationComponentType::ConstantNode(Number::from(rhs))),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1311,9 +1467,9 @@ impl ops::Add<f64> for PartEquation {
             eq: EquationComponentType::AddNode {
                 lhs: Box::new(self.eq),
                 rhs: Box::new(EquationComponentType::ConstantNode(Number::from(rhs))),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1325,9 +1481,9 @@ impl ops::Add<PartEquation> for i64 {
             eq: EquationComponentType::AddNode {
                 lhs: Box::new(EquationComponentType::ConstantNode(Number::from(self))),
                 rhs: Box::new(rhs.eq),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1339,9 +1495,9 @@ impl ops::Add<PartEquation> for f64 {
             eq: EquationComponentType::AddNode {
                 lhs: Box::new(EquationComponentType::ConstantNode(Number::from(self))),
                 rhs: Box::new(rhs.eq),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1353,9 +1509,9 @@ impl<'a> ops::Add<i64> for &'a PartEquation {
             eq: EquationComponentType::AddNode {
                 lhs: Box::new(self.eq.clone()),
                 rhs: Box::new(EquationComponentType::ConstantNode(Number::from(rhs))),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1367,9 +1523,9 @@ impl<'a> ops::Add<f64> for &'a PartEquation {
             eq: EquationComponentType::AddNode {
                 lhs: Box::new(self.eq.clone()),
                 rhs: Box::new(EquationComponentType::ConstantNode(Number::from(rhs))),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1381,9 +1537,9 @@ impl<'a> ops::Add<&'a PartEquation> for i64 {
             eq: EquationComponentType::AddNode {
                 lhs: Box::new(EquationComponentType::ConstantNode(Number::from(self))),
                 rhs: Box::new(rhs.eq.clone()),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1395,9 +1551,9 @@ impl<'a> ops::Add<&'a PartEquation> for f64 {
             eq: EquationComponentType::AddNode {
                 lhs: Box::new(EquationComponentType::ConstantNode(Number::from(self))),
                 rhs: Box::new(rhs.eq.clone()),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1409,9 +1565,9 @@ impl ops::Sub<PartEquation> for PartEquation {
             eq: EquationComponentType::SubNode {
                 lhs: Box::new(self.eq),
                 rhs: Box::new(rhs.eq),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1423,9 +1579,9 @@ impl<'a> ops::Sub<&'a PartEquation> for &'a PartEquation {
             eq: EquationComponentType::SubNode {
                 lhs: Box::new(self.eq.clone()),
                 rhs: Box::new(rhs.eq.clone()),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1437,9 +1593,9 @@ impl<'a> ops::Sub<PartEquation> for &'a PartEquation {
             eq: EquationComponentType::SubNode {
                 lhs: Box::new(self.eq.clone()),
                 rhs: Box::new(rhs.eq),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1451,9 +1607,9 @@ impl<'a> ops::Sub<&'a PartEquation> for PartEquation {
             eq: EquationComponentType::SubNode {
                 lhs: Box::new(self.eq),
                 rhs: Box::new(rhs.eq.clone()),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1465,9 +1621,9 @@ impl ops::Sub<i64> for PartEquation {
             eq: EquationComponentType::SubNode {
                 lhs: Box::new(self.eq),
                 rhs: Box::new(EquationComponentType::ConstantNode(Number::from(rhs))),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1479,9 +1635,9 @@ impl ops::Sub<f64> for PartEquation {
             eq: EquationComponentType::SubNode {
                 lhs: Box::new(self.eq),
                 rhs: Box::new(EquationComponentType::ConstantNode(Number::from(rhs))),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1493,9 +1649,9 @@ impl ops::Sub<PartEquation> for i64 {
             eq: EquationComponentType::SubNode {
                 lhs: Box::new(EquationComponentType::ConstantNode(Number::from(self))),
                 rhs: Box::new(rhs.eq),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1507,9 +1663,9 @@ impl ops::Sub<PartEquation> for f64 {
             eq: EquationComponentType::SubNode {
                 lhs: Box::new(EquationComponentType::ConstantNode(Number::from(self))),
                 rhs: Box::new(rhs.eq),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1521,9 +1677,9 @@ impl<'a> ops::Sub<i64> for &'a PartEquation {
             eq: EquationComponentType::SubNode {
                 lhs: Box::new(self.eq.clone()),
                 rhs: Box::new(EquationComponentType::ConstantNode(Number::from(rhs))),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1535,9 +1691,9 @@ impl<'a> ops::Sub<f64> for &'a PartEquation {
             eq: EquationComponentType::SubNode {
                 lhs: Box::new(self.eq.clone()),
                 rhs: Box::new(EquationComponentType::ConstantNode(Number::from(rhs))),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1549,9 +1705,9 @@ impl<'a> ops::Sub<&'a PartEquation> for i64 {
             eq: EquationComponentType::SubNode {
                 lhs: Box::new(EquationComponentType::ConstantNode(Number::from(self))),
                 rhs: Box::new(rhs.eq.clone()),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1563,9 +1719,9 @@ impl<'a> ops::Sub<&'a PartEquation> for f64 {
             eq: EquationComponentType::SubNode {
                 lhs: Box::new(EquationComponentType::ConstantNode(Number::from(self))),
                 rhs: Box::new(rhs.eq.clone()),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1577,9 +1733,9 @@ impl ops::Mul<PartEquation> for PartEquation {
             eq: EquationComponentType::MulNode {
                 lhs: Box::new(self.eq),
                 rhs: Box::new(rhs.eq),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1591,9 +1747,9 @@ impl<'a> ops::Mul<&'a PartEquation> for &'a PartEquation {
             eq: EquationComponentType::MulNode {
                 lhs: Box::new(self.eq.clone()),
                 rhs: Box::new(rhs.eq.clone()),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1605,9 +1761,9 @@ impl<'a> ops::Mul<PartEquation> for &'a PartEquation {
             eq: EquationComponentType::MulNode {
                 lhs: Box::new(self.eq.clone()),
                 rhs: Box::new(rhs.eq),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1619,9 +1775,9 @@ impl<'a> ops::Mul<&'a PartEquation> for PartEquation {
             eq: EquationComponentType::MulNode {
                 lhs: Box::new(self.eq),
                 rhs: Box::new(rhs.eq.clone()),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1633,9 +1789,9 @@ impl ops::Mul<i64> for PartEquation {
             eq: EquationComponentType::MulNode {
                 lhs: Box::new(self.eq),
                 rhs: Box::new(EquationComponentType::ConstantNode(Number::from(rhs))),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1647,9 +1803,9 @@ impl ops::Mul<f64> for PartEquation {
             eq: EquationComponentType::MulNode {
                 lhs: Box::new(self.eq),
                 rhs: Box::new(EquationComponentType::ConstantNode(Number::from(rhs))),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1661,9 +1817,9 @@ impl ops::Mul<PartEquation> for i64 {
             eq: EquationComponentType::MulNode {
                 lhs: Box::new(EquationComponentType::ConstantNode(Number::from(self))),
                 rhs: Box::new(rhs.eq),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1675,9 +1831,9 @@ impl ops::Mul<PartEquation> for f64 {
             eq: EquationComponentType::MulNode {
                 lhs: Box::new(EquationComponentType::ConstantNode(Number::from(self))),
                 rhs: Box::new(rhs.eq),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1689,9 +1845,9 @@ impl<'a> ops::Mul<i64> for &'a PartEquation {
             eq: EquationComponentType::MulNode {
                 lhs: Box::new(self.eq.clone()),
                 rhs: Box::new(EquationComponentType::ConstantNode(Number::from(rhs))),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1703,9 +1859,9 @@ impl<'a> ops::Mul<f64> for &'a PartEquation {
             eq: EquationComponentType::MulNode {
                 lhs: Box::new(self.eq.clone()),
                 rhs: Box::new(EquationComponentType::ConstantNode(Number::from(rhs))),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1717,9 +1873,9 @@ impl<'a> ops::Mul<&'a PartEquation> for i64 {
             eq: EquationComponentType::MulNode {
                 lhs: Box::new(EquationComponentType::ConstantNode(Number::from(self))),
                 rhs: Box::new(rhs.eq.clone()),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1731,9 +1887,9 @@ impl<'a> ops::Mul<&'a PartEquation> for f64 {
             eq: EquationComponentType::MulNode {
                 lhs: Box::new(EquationComponentType::ConstantNode(Number::from(self))),
                 rhs: Box::new(rhs.eq.clone()),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1745,9 +1901,9 @@ impl ops::Div<PartEquation> for PartEquation {
             eq: EquationComponentType::DivNode {
                 numerator: Box::new(self.eq),
                 denominator: Box::new(rhs.eq),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1759,9 +1915,9 @@ impl<'a> ops::Div<&'a PartEquation> for &'a PartEquation {
             eq: EquationComponentType::DivNode {
                 numerator: Box::new(self.eq.clone()),
                 denominator: Box::new(rhs.eq.clone()),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1773,9 +1929,9 @@ impl<'a> ops::Div<PartEquation> for &'a PartEquation {
             eq: EquationComponentType::DivNode {
                 numerator: Box::new(self.eq.clone()),
                 denominator: Box::new(rhs.eq),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1787,9 +1943,9 @@ impl<'a> ops::Div<&'a PartEquation> for PartEquation {
             eq: EquationComponentType::DivNode {
                 numerator: Box::new(self.eq),
                 denominator: Box::new(rhs.eq.clone()),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1801,9 +1957,9 @@ impl ops::Div<i64> for PartEquation {
             eq: EquationComponentType::DivNode {
                 numerator: Box::new(self.eq),
                 denominator: Box::new(EquationComponentType::ConstantNode(Number::from(rhs))),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1815,9 +1971,9 @@ impl ops::Div<f64> for PartEquation {
             eq: EquationComponentType::DivNode {
                 numerator: Box::new(self.eq),
                 denominator: Box::new(EquationComponentType::ConstantNode(Number::from(rhs))),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1829,9 +1985,9 @@ impl ops::Div<PartEquation> for i64 {
             eq: EquationComponentType::DivNode {
                 numerator: Box::new(EquationComponentType::ConstantNode(Number::from(self))),
                 denominator: Box::new(rhs.eq),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1843,9 +1999,9 @@ impl ops::Div<PartEquation> for f64 {
             eq: EquationComponentType::DivNode {
                 numerator: Box::new(EquationComponentType::ConstantNode(Number::from(self))),
                 denominator: Box::new(rhs.eq),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1857,9 +2013,9 @@ impl<'a> ops::Div<i64> for &'a PartEquation {
             eq: EquationComponentType::DivNode {
                 numerator: Box::new(self.eq.clone()),
                 denominator: Box::new(EquationComponentType::ConstantNode(Number::from(rhs))),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1871,9 +2027,9 @@ impl<'a> ops::Div<f64> for &'a PartEquation {
             eq: EquationComponentType::DivNode {
                 numerator: Box::new(self.eq.clone()),
                 denominator: Box::new(EquationComponentType::ConstantNode(Number::from(rhs))),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -1887,6 +2043,7 @@ impl<'a> ops::Div<&'a PartEquation> for i64 {
                 denominator: Box::new(rhs.eq.clone()),
             },
         }
+        .simplify()
     }
 }
 
@@ -1898,9 +2055,9 @@ impl<'a> ops::Div<&'a PartEquation> for f64 {
             eq: EquationComponentType::DivNode {
                 numerator: Box::new(EquationComponentType::ConstantNode(Number::from(self))),
                 denominator: Box::new(rhs.eq.clone()),
-            }
-            .simplify(),
+            },
         }
+        .simplify()
     }
 }
 
@@ -2059,5 +2216,35 @@ mod tests {
         } else {
             assert!(false);
         }
+    }
+
+    #[test]
+    fn test_eq_trait_for_part_equation_1() {
+        let x: PartEquation = PartEquation::from('x');
+        let y: PartEquation = PartEquation::from('y');
+        let z: PartEquation = PartEquation::from('z');
+
+        let eq1 = &x + &y + &z;
+
+        assert_eq!(eq1, &x + &z + &y);
+        assert_eq!(eq1, &y + &x + &z);
+        assert_eq!(eq1, &y + &z + &x);
+        assert_eq!(eq1, &z + &y + &x);
+        assert_eq!(eq1, &z + &x + &y);
+    }
+
+    #[test]
+    fn test_eq_trait_for_part_equation_2() {
+        let x: PartEquation = PartEquation::from('x');
+        let y: PartEquation = PartEquation::from('y');
+        let z: PartEquation = PartEquation::from('z');
+
+        let eq1 = &x * &y * &z;
+
+        assert_eq!(eq1, &x * &z * &y);
+        assert_eq!(eq1, &y * &x * &z);
+        assert_eq!(eq1, &y * &z * &x);
+        assert_eq!(eq1, &z * &y * &x);
+        assert_eq!(eq1, &z * &x * &y);
     }
 }
