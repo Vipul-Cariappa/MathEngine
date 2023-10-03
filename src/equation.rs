@@ -712,7 +712,7 @@ impl EquationComponentType {
                 lhs.separate_terms(terms);
                 rhs.separate_terms(terms);
             }
-            n => terms.push(n.clone()),
+            n => terms.push(n.order()),
         };
     }
 
@@ -722,7 +722,7 @@ impl EquationComponentType {
                 lhs.separate_products(products);
                 rhs.separate_products(products);
             }
-            n => products.push(n.clone()),
+            n => products.push(n.order()),
         }
     }
 
@@ -2219,7 +2219,7 @@ mod tests {
     }
 
     #[test]
-    fn test_eq_trait_for_part_equation_1() {
+    fn test_equality_for_part_equation_1() {
         let x: PartEquation = PartEquation::from('x');
         let y: PartEquation = PartEquation::from('y');
         let z: PartEquation = PartEquation::from('z');
@@ -2234,7 +2234,7 @@ mod tests {
     }
 
     #[test]
-    fn test_eq_trait_for_part_equation_2() {
+    fn test_equality_for_part_equation_2() {
         let x: PartEquation = PartEquation::from('x');
         let y: PartEquation = PartEquation::from('y');
         let z: PartEquation = PartEquation::from('z');
@@ -2246,5 +2246,18 @@ mod tests {
         assert_eq!(eq1, &y * &z * &x);
         assert_eq!(eq1, &z * &y * &x);
         assert_eq!(eq1, &z * &x * &y);
+    }
+
+    #[test]
+    fn test_equality_for_part_equation_3() {
+        let x: PartEquation = PartEquation::from('x');
+        let y: PartEquation = PartEquation::from('y');
+        let z: PartEquation = PartEquation::from('z');
+
+        let eq1 = &x * (&y + &z);
+
+        assert_eq!(eq1, &x * (&z + &y));
+        assert_eq!(eq1, (&y + &z) * (&x));
+        assert_eq!(eq1, (&z + &y) * (&x));
     }
 }
