@@ -13,9 +13,7 @@ pub enum Number {
 }
 
 impl Number {
-    pub fn pow(&self, exponent: &Number) -> Number {
-        // TODO: rational ^ integer -> rational, presently it returns float
-        
+    pub fn pow(&self, exponent: &Number) -> Number {        
         match self {
             Number::Integer(b) => match exponent {
                 Number::Integer(e) => Number::pow_integer(b, e),
@@ -35,7 +33,7 @@ impl Number {
                         let (b, _) = b.clone().into_numer_denom();
                         Number::pow_integer(&b, e)
                     } else {
-                        Number::pow_float(&Float::with_val(100, b), &Float::with_val(100, e))
+                        Number::pow_rational(b, e)
                     }
                 }
                 Number::Rational(e) => {
@@ -66,6 +64,16 @@ impl Number {
             count += 1;
         }
         return Number::Integer(result);
+    }
+    
+    fn pow_rational(base: &Rational, exponent: &Integer) -> Number {
+        let mut result = Rational::from(base);
+        let mut count = Integer::from(1);
+        while count < *exponent {
+            result *= base;
+            count += 1;
+        }
+        return Number::Rational(result);
     }
 
     fn pow_float(base: &Float, exponent: &Float) -> Number {
