@@ -300,9 +300,6 @@ impl EquationComponentType {
             } // End EquationComponentType::SubNode
 
             EquationComponentType::MulNode { lhs: _, rhs: _ } => {
-                // TODO: implement the following simplifications
-                // x * (y * z) = x * y + x * z
-
                 // extracting simplified child nodes
                 let mut variables: Vec<char> = Vec::new();
                 let mut constants: Vec<Number> = Vec::new();
@@ -411,6 +408,9 @@ impl EquationComponentType {
                     }
                 }
 
+                // TODO: implement the following simplifications
+                // x * (y + z) = x * y + x * z
+
                 // creating new MulNode with all the computed and simplified nodes
                 if variables_nodes.len() == 0 {
                     return EquationComponentType::ConstantNode(constant);
@@ -484,10 +484,15 @@ impl EquationComponentType {
             } // End EquationComponentType::DivNode
 
             EquationComponentType::PowNode { base, exponent } => {
-                // TODO: implement the following simplification `x^1 = x`
-
                 let base: EquationComponentType = base.simplify();
                 let exponent: EquationComponentType = exponent.simplify();
+
+                // x^1 -> x
+                if let EquationComponentType::ConstantNode(i) = exponent.clone() {
+                    if i == Number::from(1) {
+                        return base.simplify();
+                    }
+                }
 
                 // ((x ^ y) ^ z) -> x ^ (z * y)
                 if let EquationComponentType::PowNode {
