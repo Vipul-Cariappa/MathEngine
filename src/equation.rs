@@ -536,15 +536,36 @@ impl EquationComponentType {
             } // End EquationComponentType::PowNode
 
             EquationComponentType::LogNode { base, argument } => {
-                // TODO: implement the following simplification `log_x(x^4) = 4`
-                //  log_base(base ^ n) = n
+                // log_base(base ^ n) -> n
+                if let EquationComponentType::PowNode {
+                    base: pow_base,
+                    exponent,
+                } = *argument.clone()
+                {
+                    if pow_base.simplify().order() == base.simplify().order() {
+                        return exponent.simplify();
+                    }
+                }
 
-                // TODO: implement the following simplification `log(x^n) = n*log(x)`
+                // log(x^n) -> n*log(x)
+                if let EquationComponentType::PowNode {
+                    base: base_pow,
+                    exponent,
+                } = *argument.clone()
+                {
+                    return EquationComponentType::MulNode {
+                        lhs: Box::new(exponent.simplify()),
+                        rhs: Box::new(EquationComponentType::LogNode {
+                            base: Box::new(base.simplify()),
+                            argument: Box::new(base_pow.simplify()),
+                        }),
+                    };
+                }
 
-                EquationComponentType::LogNode {
+                return EquationComponentType::LogNode {
                     base: Box::new(base.simplify()),
                     argument: Box::new(argument.simplify()),
-                }
+                };
             } // End EquationComponentType::LogNode
 
             EquationComponentType::MinusNode(value) => {
